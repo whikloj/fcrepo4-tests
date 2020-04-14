@@ -2,8 +2,6 @@
 
 import TestConstants
 from abstract_fedora_tests import FedoraTests, register_tests, Test
-import json
-import pyjq
 
 
 @register_tests
@@ -16,13 +14,12 @@ class FedoraTransactionTests(FedoraTests):
         headers = {
             'Accept': TestConstants.JSONLD_MIMETYPE
         }
-        r = self.do_get(self.getFedoraBase(), headers=headers)
+        r = self.do_head(self.getFedoraBase(), headers=headers)
         self.assertEqual(200, r.status_code, "Did not get expected response")
-        body = r.content.decode('UTF-8')
-        json_body = json.loads(body)
-        tx_provider = pyjq.first('.[]."http://fedora.info/definitions/v4/repository#hasTransactionProvider" | .[]."@id"',
-                                 json_body)
-        return tx_provider
+        link_headers = self.get_link_headers(r)
+        if TestConstants.FEDORA_TX_ENDPOINT_REL in link_headers.keys():
+            return link_headers.get(TestConstants.FEDORA_TX_ENDPOINT_REL)[0]
+        return None
 
     @Test
     def doCommitTest(self):
@@ -34,35 +31,72 @@ class FedoraTransactionTests(FedoraTests):
             self.log("Create a transaction")
             r = self.do_post(tx_provider)
             self.assertEqual(201, r.status_code, "Did not get expected response code")
-            full_transaction_uri = self.get_location(r)
-            transaction = full_transaction_uri.replace(self.getFedoraBase(), "")
-            self.log("Transaction is {0}".format(transaction))
+            transaction_id = self.get_location(r)
+            self.log("Transaction is {0}".format(transaction_id))
 
             self.log("Get status of transaction")
-            r = self.do_get(full_transaction_uri)
-            self.assertEqual(200, r.status_code, "Did not get expected response code")
+            r = self.do_get(transaction_id)
+            self.assertEqual(204, r.status_code, "Did not get expected response code")
+            self.assertHeaderExists(r, "Atomic-Expires")
 
             self.log("Create an container in the transaction")
-            r = self.do_post(full_transaction_uri + self.CONTAINER)
+            transaction_headers = {
+                'Atomic-Id': transaction_id
+            }
+            r = self.do_post(headers=transaction_headers)
             self.assertEqual(201, r.status_code, "Did not get expected response code")
             transaction_obj = self.get_location(r)
 
             self.log("Container is available inside the transaction")
-            r = self.do_get(transaction_obj)
+            r = self.do_get(transaction_obj, headers=transaction_headers)
             self.assertEqual(200, r.status_code, "Did not get expected response code")
 
             self.log("Container not available outside the transaction")
-            outside_location = transaction_obj.replace(transaction, "")
-            r = self.do_get(outside_location)
+            r = self.do_get(transaction_obj)
             self.assertEqual(404, r.status_code, "Did not get expected response code")
 
+            self.log("Use an invalid transaction ID")
+            bad_headers = {
+                'Atomic-ID': 'this-is-a-failure'
+            }
+            r = self.do_post(headers=bad_headers)
+            self.assertEqual(409, r.status_code, "Did not get expected response code")
+
+            self.log("Use the bare UUID of a valid transaction ID")
+            diff_headers = {
+                'Atomic-ID': transaction_id.replace(self.getFedoraBase() + "/" + TestConstants.FCR_TX + "/", "")
+            }
+            r = self.do_post(headers=diff_headers)
+            self.assertEqual(201, r.status_code, "Did not get expected response code")
+            second_obj = self.get_location(r)
+
+            self.log("Second container is available inside the transaction")
+            r = self.do_get(second_obj, headers=transaction_headers)
+            self.assertEqual(200, r.status_code, "Did not get expected response code")
+
+            self.log("Second container not available outside the transaction")
+            r = self.do_get(second_obj)
+            self.assertEqual(404, r.status_code, "Did not get expected response code")
+
+            self.log("Try to commit with POST")
+            r = self.do_post(transaction_id + "/commit")
+            self.assertEqual(405, r.status_code, "Did not get expected response code")
+
             self.log("Commit transaction")
-            r = self.do_post(full_transaction_uri + "/fcr:tx/fcr:commit")
+            r = self.do_put(transaction_id + "/commit")
             self.assertEqual(204, r.status_code, "Did not get expected response code")
 
             self.log("Container is now available outside the transaction")
-            r = self.do_get(outside_location)
+            r = self.do_get(transaction_obj)
             self.assertEqual(200, r.status_code, "Did not get expected response code")
+
+            self.log("Transaction is no longer available")
+            r = self.do_get(transaction_id)
+            self.assertEqual(410, r.status_code, "Did not get expected response code")
+
+            self.log("Can't use the transaction anymore")
+            r = self.do_post(headers=transaction_headers)
+            self.assertEqual(409, r.status_code, "Did not get expected response code")
 
     @Test
     def doRollbackTest(self):
@@ -74,28 +108,37 @@ class FedoraTransactionTests(FedoraTests):
             self.log("Create a transaction")
             r = self.do_post(tx_provider)
             self.assertEqual(201, r.status_code, "Did not get expected response code")
-            full_transaction_uri = self.get_location(r)
-            transaction = full_transaction_uri.replace(self.getFedoraBase(), "")
-            self.log("Transaction is {0}".format(transaction))
+            transaction_id = self.get_location(r)
+            self.log("Transaction is {0}".format(transaction_id))
 
             self.log("Create an container in the transaction")
-            r = self.do_post(full_transaction_uri + self.CONTAINER)
+            transaction_headers = {
+                'Atomic-Id': transaction_id
+            }
+            r = self.do_post(headers=transaction_headers)
             self.assertEqual(201, r.status_code, "Did not get expected response code")
             transaction_obj = self.get_location(r)
 
             self.log("Container is available inside the transaction")
-            r = self.do_get(transaction_obj)
+            r = self.do_get(transaction_obj, headers=transaction_headers)
             self.assertEqual(200, r.status_code, "Did not get expected response code")
 
             self.log("Container not available outside the transaction")
-            outside_location = transaction_obj.replace(transaction, "")
-            r = self.do_get(outside_location)
+            r = self.do_get(transaction_obj)
             self.assertEqual(404, r.status_code, "Did not get expected response code")
 
             self.log("Rollback transaction")
-            r = self.do_post(full_transaction_uri + "/fcr:tx/fcr:rollback")
+            r = self.do_delete(transaction_id)
             self.assertEqual(204, r.status_code, "Did not get expected response code")
 
             self.log("Container is still not available outside the transaction")
-            r = self.do_get(outside_location)
+            r = self.do_get(transaction_obj)
             self.assertEqual(404, r.status_code, "Did not get expected response code")
+
+            self.log("Transaction is no longer available")
+            r = self.do_get(transaction_id)
+            self.assertEqual(410, r.status_code, "Did not get expected response code")
+
+            self.log("Can't use the transaction anymore")
+            r = self.do_post(headers=transaction_headers)
+            self.assertEqual(409, r.status_code, "Did not get expected response code")

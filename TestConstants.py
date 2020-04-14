@@ -19,9 +19,13 @@ PAYLOAD_HEADERS = ['Content-Length', 'Content-Range', 'Trailer', 'Transfer-Encod
 FEDORA_NS = "http://fedora.info/definitions/v4/repository#"
 FCR_VERSIONS = "fcr:versions"
 FCR_FIXITY = "fcr:fixity"
+FCR_TX = "fcr:tx"
 SERVER_MANAGED = FEDORA_NS + "ServerManaged"
 INBOUND_REFERENCE = FEDORA_NS + "InboundReferences"
 EMBEDED_RESOURCE = FEDORA_NS + "EmbedResources"
+
+FEDORA_TX_NS = "http://fedora.info/definitions/v4/transaction#"
+FEDORA_TX_ENDPOINT_REL = FEDORA_TX_NS + "endpoint"
 
 GET_PREFER_MINIMAL = "return=minimal"
 PUT_PREFER_LENIENT = "handling=lenient; received=\"minimal\""
