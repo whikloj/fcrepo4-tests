@@ -229,7 +229,7 @@ class FedoraTests(unittest.TestCase):
         headers = {}
         link_headers = [x.strip() for x in response.headers['Link'].split(",")]
         for x in link_headers:
-            matches = re.match(r'\s*<([^>]+)>;\s?rel=[\'"]?(\w+)[\'"]?', x)
+            matches = re.match(r'\s*<([^>]+)>;\s?rel=[\'"]?([^\'"]+)[\'"]?', x)
             if matches is not None:
                 try:
                     headers[matches.group(2)]
@@ -286,6 +286,27 @@ class FedoraTests(unittest.TestCase):
             if title == expected:
                 return
         self.fail("Did not find expected title \"{0}\" in response".format(expected))
+
+    def assertLinkHeaderExists(self, response, rel, expected=None):
+        """ Check for the existence of a link header and possibly match the URI """
+        link_headers = self.get_link_headers(response)
+        if rel not in link_headers:
+            self.fail("Did not find expected link header with rel={0}".format(rel))
+        else:
+            if expected is not None:
+                if link_headers.get(rel) != expected:
+                    self.fail(
+                        "Did not find expected link header value for rel={0}, found {1} expected {2}"
+                            .format(rel, link_headers.get(rel), expected))
+
+    def assertHeaderExists(self, response, name, value=None):
+        """ Check for the existence of a header and possibly match the value """
+        if name.lower() not in response.headers:
+            self.fail("Did not find expected header {0}".format(name))
+        else:
+            if value is not None and response.headers[name.lower()] != value:
+                self.fail("Did not find expected header value for header {0}, found {1} expected {2}"
+                          .format(name, response.headers[name], value))
 
     @staticmethod
     def log(message):

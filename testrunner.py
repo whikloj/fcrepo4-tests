@@ -9,6 +9,7 @@ try:
     from yaml import CLoader as Loader
 except ImportError:
     from yaml import Loader
+from yaml import SafeLoader
 from basic_interaction_tests import FedoraBasicIxnTests
 from version_tests import FedoraVersionTests
 from fixity_tests import FedoraFixityTests
@@ -47,7 +48,7 @@ class FedoraTestRunner:
         if os.path.exists(file):
             if os.access(file, os.R_OK):
                 with open(file, 'r') as fp:
-                    yml = load(fp.read())
+                    yml = load(fp.read(), Loader=SafeLoader)
                     self.config = yml.get(site)
 
     def parse_cmdline_args(self, args):
