@@ -3,6 +3,8 @@
 import TestConstants
 from abstract_fedora_tests import FedoraTests, register_tests, Test
 import os
+import pyjq
+import json
 
 
 @register_tests
@@ -79,7 +81,7 @@ class FedoraBasicIxnTests(FedoraTests):
         self.log("Create a container in a container")
         r = self.do_post(location, headers=headers, body=TestConstants.OBJECT_TTL)
         self.assertEqual(201, r.status_code, "Did not get expected status code")
-        location2 = self.get_location(r)
+        main_child1 = self.get_location(r)
 
         self.log("Create binary inside a container inside a container")
         with open(os.path.join(os.getcwd(), 'resources', 'basic_image.jpg'), 'rb') as fp:
@@ -87,9 +89,38 @@ class FedoraBasicIxnTests(FedoraTests):
                 'Content-type': 'image/jpeg'
             }
             data = fp.read()
-            r = self.do_post(location2, headers=headers, body=data)
+            r = self.do_post(main_child1, headers=headers, body=data)
             self.assertEqual(201, r.status_code, "Did not get expected status code")
             binary_location = self.get_location(r)
+
+        self.log("Create a second child in the top container")
+        r = self.do_post(location, headers=headers, body=TestConstants.OBJECT_TTL)
+        self.assertEqual(201, r.status_code, "Did not get expected status code")
+        main_child2 = self.get_location(r)
+
+        self.log("Verify containment")
+        headers = {
+            'Accept': TestConstants.JSONLD_MIMETYPE
+        }
+        r = self.do_get(location, headers=headers)
+        self.assertEqual(200, r.status_code, "Can't get the container")
+        body = r.content.decode('UTF-8').rstrip('\ny')
+        json_body = json.loads(body)
+        contained = pyjq.all('.[0]."http://www.w3.org/ns/ldp#contains"', json_body)
+        expected = [
+            main_child1,
+            main_child2
+        ]
+        found = list()
+        for c in contained[0]:
+            child_id = pyjq.first('."@id"', c)
+            found.append(child_id)
+        if len(found) != len(expected):
+            self.fail("Expected {0} contained resources, found {1}".format(len(expected), len(found)))
+        else:
+            for child_id in found:
+                if child_id not in expected:
+                    self.fail("Found unexpected containment relationship {0}".format(child_id))
 
         self.log("Delete binary")
         r = self.do_delete(binary_location)
@@ -104,7 +135,7 @@ class FedoraBasicIxnTests(FedoraTests):
         self.assertEqual(204, r.status_code, "Did not get expected status code")
 
         self.log("Verify both are gone")
-        r = self.do_get(location2)
+        r = self.do_get(main_child1)
         self.assertEqual(410, r.status_code, "Did not get expected status code")
         r = self.do_get(location)
         self.assertEqual(410, r.status_code, "Did not get expected status code")
