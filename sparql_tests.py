@@ -83,3 +83,40 @@ class FedoraSparqlTests(FedoraTests):
         r = self.do_patch(location, headers=headers, body=sparql)
         self.assertEqual(204, r.status_code, "Did not get expected response code")
         self.assertTitleExists("Die von Blumenbach gegründete anthropologische Sammlung der Universität", location)
+
+    @Test
+    def doAddType(self):
+        self.log("Create a container")
+        r = self.do_post(self.getBaseUri())
+        self.assertEqual(201, r.status_code, "Did not get expected response code")
+        location = self.get_location(r)
+
+        sparql = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> " \
+                 "PREFIX ldp: <http://www.w3.org/ns/ldp#> " \
+                 "PREFIX example: <http://www.example.org/ns#> " \
+                 "INSERT DATA { <> rdf:type example:type }"
+        self.log("Patching with our own type")
+        headers = {
+            'Content-type': TestConstants.SPARQL_UPDATE_MIMETYPE
+        }
+        r = self.do_patch(location, headers=headers, body=sparql)
+        self.assertEqual(204, r.status_code, "Did not get expected response code")
+        self.assertTypeExists("http://www.example.org/ns#type", location)
+
+    @Test
+    def doAddRestrictedType(self):
+        self.log("Create a container")
+        r = self.do_post(self.getBaseUri())
+        self.assertEqual(201, r.status_code, "Did not get expected response code")
+        location = self.get_location(r)
+
+        sparql = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> " \
+                 "PREFIX ldp: <http://www.w3.org/ns/ldp#> " \
+                 "PREFIX example: <http://www.example.org/ns#> " \
+                 "INSERT DATA {{ <> rdf:type <{0}> }}".format(TestConstants.LDP_DIRECT)
+        self.log("Patching with our own type")
+        headers = {
+            'Content-type': TestConstants.SPARQL_UPDATE_MIMETYPE
+        }
+        r = self.do_patch(location, headers=headers, body=sparql)
+        self.assertwEqual(409, r.status_code, "Did not get expected response code")

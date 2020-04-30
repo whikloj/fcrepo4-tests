@@ -287,6 +287,20 @@ class FedoraTests(unittest.TestCase):
                 return
         self.fail("Did not find expected title \"{0}\" in response".format(expected))
 
+    def assertTypeExists(self, expected, location):
+        """ Check resource at {location} for the rdf:type {expected} """
+        get_headers = {
+            'Accept': TestConstants.JSONLD_MIMETYPE
+        }
+        response = self.do_get(location, headers=get_headers)
+        body = response.content.decode('UTF-8')
+        json_body = json.loads(body)
+        found_title = pyjq.all('.[] | ."@type" | .[]', json_body)
+        for title in found_title:
+            if title == expected:
+                return
+        self.fail("Did not find expected type \"{0}\" in response".format(expected))
+
     def assertLinkHeaderExists(self, response, rel, expected=None):
         """ Check for the existence of a link header and possibly match the URI """
         link_headers = self.get_link_headers(response)
@@ -323,6 +337,13 @@ class FedoraTests(unittest.TestCase):
     def checkValue(self, expected, received):
         self.assertEqual(expected, received, "Did not get expected value")
         FedoraTests.log("   Passed {0} == {0}".format(received))
+
+    def createBasicContainer(self, parent_location):
+        """ Make a simple basic container with some RDF content. """
+        headers = {
+            'Content-type': TestConstants.TURTLE_MIMETYPE
+        }
+        return self.do_post(parent_location, headers, TestConstants.OBJECT_TTL)
 
 
 def Test(func):

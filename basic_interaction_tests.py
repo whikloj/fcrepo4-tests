@@ -5,6 +5,7 @@ from abstract_fedora_tests import FedoraTests, register_tests, Test
 import os
 import pyjq
 import json
+import uuid
 
 
 @register_tests
@@ -30,6 +31,54 @@ class FedoraBasicIxnTests(FedoraTests):
         self.assertIsNotNone(type_headers['type'], "Did not get any link headers with rel=type")
         self.assertIn(type, type_headers['type'], "Did not find link header for {}".format(type))
         return location
+
+    @Test
+    def aTestMissingResource(self):
+        fake_id = str(uuid.uuid4())
+        r = self.do_get(self.getFedoraBase() + "/" + fake_id)
+        self.assertEqual(404, r.status_code, "Did not get expected response")
+
+    @Test
+    def testDeleteAResource(self):
+        self.log("Create container")
+        r = self.do_post(self.getBaseUri())
+        container_location = self.get_location(r)
+        self.assertEqual(201, r.status_code, "Did not get expected response")
+
+        self.log("Check container exists")
+        r = self.do_head(container_location)
+        self.assertEqual(200, r.status_code, "Did not get expected response")
+        r = self.do_get(container_location)
+        self.assertEqual(200, r.status_code, "Did not get expected response")
+
+        self.log("Delete the container")
+        r = self.do_delete(container_location)
+        self.assertEqual(204, r.status_code, "Did not get expected response")
+
+        self.log("Check container doesn't exists")
+        r = self.do_head(container_location)
+        self.assertEqual(410, r.status_code, "Did not get expected response")
+        r = self.do_get(container_location)
+        self.assertEqual(410, r.status_code, "Did not get expected response")
+
+        self.log("Try to put to location held by tombstone")
+        r = self.do_put(container_location)
+        self.assertEqual(410, r.status_code, "Did not get expected response")
+
+        self.log("Delete the tombstone")
+        r = self.do_delete(container_location + "/" + TestConstants.FCR_TOMBSTONE)
+        self.assertEqual(204, r.status_code, "Did not get expected response")
+
+        self.log("Check container doesn't exists")
+        r = self.do_head(container_location)
+        self.assertEqual(404, r.status_code, "Did not get expected response")
+        r = self.do_get(container_location)
+        self.assertEqual(404, r.status_code, "Did not get expected response")
+
+        self.log("Try to put to location again")
+        r = self.do_put(container_location)
+        self.assertEqual(201, r.status_code, "Did not get expected response")
+
 
     @Test
     def testBasicContainer(self):
@@ -71,15 +120,12 @@ class FedoraBasicIxnTests(FedoraTests):
     @Test
     def doNestedTests(self):
         self.log("Create a container")
-        headers = {
-            'Content-type': 'text/turtle'
-        }
-        r = self.do_post(self.getBaseUri(), headers=headers, body=TestConstants.OBJECT_TTL)
+        r = self.createBasicContainer(self.getBaseUri())
         self.assertEqual(201, r.status_code, "Did not get expected status code")
         location = self.get_location(r)
 
         self.log("Create a container in a container")
-        r = self.do_post(location, headers=headers, body=TestConstants.OBJECT_TTL)
+        r = self.createBasicContainer(location)
         self.assertEqual(201, r.status_code, "Did not get expected status code")
         main_child1 = self.get_location(r)
 
@@ -94,7 +140,7 @@ class FedoraBasicIxnTests(FedoraTests):
             binary_location = self.get_location(r)
 
         self.log("Create a second child in the top container")
-        r = self.do_post(location, headers=headers, body=TestConstants.OBJECT_TTL)
+        r = self.createBasicContainer(location)
         self.assertEqual(201, r.status_code, "Did not get expected status code")
         main_child2 = self.get_location(r)
 

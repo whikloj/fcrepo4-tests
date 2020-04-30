@@ -21,10 +21,7 @@ class FedoraRdfTests(FedoraTests):
     @Test
     def testRdfSerialization(self):
         self.log("Put new resource.")
-        headers = {
-            "Content-type": "text/turtle"
-        }
-        r = self.do_post(self.getBaseUri(), headers=headers, body=TestConstants.OBJECT_TTL)
+        r = self.createBasicContainer(self.getBaseUri())
         self.assertEqual(201, r.status_code, "Did not create new object")
         location = self.get_location(r)
 
