@@ -1,6 +1,6 @@
 #!/bin/env python
 
-import TestConstants
+import TestConstants as TC
 from abstract_fedora_tests import FedoraTests, register_tests, Test
 
 
@@ -10,16 +10,22 @@ class FedoraTransactionTests(FedoraTests):
     # Create test objects all inside here for easy of review
     CONTAINER = "/test_transaction"
 
-    def get_transaction_provider(self):
-        headers = {
-            'Accept': TestConstants.JSONLD_MIMETYPE
-        }
-        r = self.do_head(self.getFedoraBase(), headers=headers)
-        self.assertEqual(200, r.status_code, "Did not get expected response")
-        link_headers = self.get_link_headers(r)
-        if TestConstants.FEDORA_TX_ENDPOINT_REL in link_headers.keys():
-            return link_headers.get(TestConstants.FEDORA_TX_ENDPOINT_REL)[0]
-        return None
+    def createTransaction(self, admin=None):
+        if admin is None:
+            admin = True
+        tx_location = self.get_transaction_provider()
+        self.log("Create a transaction")
+        r = self.do_post(tx_location, admin=admin)
+        self.checkResponse(201, r)
+        return self.get_location(r)
+
+    def checkResponse(self, expected, response, tx_id = None):
+        try:
+            super().checkResponse(expected, response)
+        except AssertionError as e:
+            if tx_id is not None:
+                self.do_delete(tx_id)
+            raise e
 
     @Test
     def doCommitTest(self):
@@ -28,15 +34,12 @@ class FedoraTransactionTests(FedoraTests):
             self.log("Could not location transaction provider")
             self.log("Skipping test")
         else:
-            self.log("Create a transaction")
-            r = self.do_post(tx_provider)
-            self.assertEqual(201, r.status_code, "Did not get expected response code")
-            transaction_id = self.get_location(r)
+            transaction_id = self.createTransaction()
             self.log("Transaction is {0}".format(transaction_id))
 
             self.log("Get status of transaction")
             r = self.do_get(transaction_id)
-            self.assertEqual(204, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.NO_CONTENT, r, transaction_id)
             self.assertHeaderExists(r, "Atomic-Expires")
 
             self.log("Create an container in the transaction")
@@ -44,59 +47,59 @@ class FedoraTransactionTests(FedoraTests):
                 'Atomic-Id': transaction_id
             }
             r = self.do_post(headers=transaction_headers)
-            self.assertEqual(201, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.CREATED, r, transaction_id)
             transaction_obj = self.get_location(r)
 
             self.log("Container is available inside the transaction")
             r = self.do_get(transaction_obj, headers=transaction_headers)
-            self.assertEqual(200, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.OK, r, transaction_id)
 
             self.log("Container not available outside the transaction")
             r = self.do_get(transaction_obj)
-            self.assertEqual(404, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.NOT_FOUND, r, transaction_id)
 
             self.log("Use an invalid transaction ID")
             bad_headers = {
                 'Atomic-ID': 'this-is-a-failure'
             }
             r = self.do_post(headers=bad_headers)
-            self.assertEqual(409, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.CONFLICT, r, transaction_id)
 
             self.log("Use the bare UUID of a valid transaction ID")
             diff_headers = {
-                'Atomic-ID': transaction_id.replace(self.getFedoraBase() + "/" + TestConstants.FCR_TX + "/", "")
+                'Atomic-ID': transaction_id.replace(self.getFedoraBase() + "/" + TC.FCR_TX + "/", "")
             }
             r = self.do_post(headers=diff_headers)
-            self.assertEqual(201, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.CREATED, r, transaction_id)
             second_obj = self.get_location(r)
 
             self.log("Second container is available inside the transaction")
             r = self.do_get(second_obj, headers=transaction_headers)
-            self.assertEqual(200, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.OK, r, transaction_id)
 
             self.log("Second container not available outside the transaction")
             r = self.do_get(second_obj)
-            self.assertEqual(404, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.NOT_FOUND, r, transaction_id)
 
-            self.log("Try to commit with POST")
-            r = self.do_post(transaction_id + "/commit")
-            self.assertEqual(405, r.status_code, "Did not get expected response code")
+            self.log("Try to commit with old commit endpoint")
+            r = self.do_put(transaction_id + "/commit")
+            self.checkResponse(TC.NOT_FOUND, r, transaction_id)
 
             self.log("Commit transaction")
-            r = self.do_put(transaction_id + "/commit")
-            self.assertEqual(204, r.status_code, "Did not get expected response code")
+            r = self.do_put(transaction_id)
+            self.checkResponse(TC.NO_CONTENT, r, transaction_id)
 
             self.log("Container is now available outside the transaction")
             r = self.do_get(transaction_obj)
-            self.assertEqual(200, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.OK, r)
 
             self.log("Transaction is no longer available")
             r = self.do_get(transaction_id)
-            self.assertEqual(410, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.GONE, r)
 
             self.log("Can't use the transaction anymore")
             r = self.do_post(headers=transaction_headers)
-            self.assertEqual(409, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.CONFLICT, r)
 
     @Test
     def doRollbackTest(self):
@@ -105,10 +108,7 @@ class FedoraTransactionTests(FedoraTests):
             self.log("Could not location transaction provider")
             self.log("Skipping test")
         else:
-            self.log("Create a transaction")
-            r = self.do_post(tx_provider)
-            self.assertEqual(201, r.status_code, "Did not get expected response code")
-            transaction_id = self.get_location(r)
+            transaction_id = self.createTransaction()
             self.log("Transaction is {0}".format(transaction_id))
 
             self.log("Create an container in the transaction")
@@ -116,29 +116,195 @@ class FedoraTransactionTests(FedoraTests):
                 'Atomic-Id': transaction_id
             }
             r = self.do_post(headers=transaction_headers)
-            self.assertEqual(201, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.CREATED, r, transaction_id)
             transaction_obj = self.get_location(r)
 
             self.log("Container is available inside the transaction")
             r = self.do_get(transaction_obj, headers=transaction_headers)
-            self.assertEqual(200, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.OK, r, transaction_id)
 
             self.log("Container not available outside the transaction")
             r = self.do_get(transaction_obj)
-            self.assertEqual(404, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.NOT_FOUND, r, transaction_id)
 
             self.log("Rollback transaction")
             r = self.do_delete(transaction_id)
-            self.assertEqual(204, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.NO_CONTENT, r, transaction_id)
 
             self.log("Container is still not available outside the transaction")
             r = self.do_get(transaction_obj)
-            self.assertEqual(404, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.NOT_FOUND, r)
 
             self.log("Transaction is no longer available")
             r = self.do_get(transaction_id)
-            self.assertEqual(410, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.GONE, r)
 
             self.log("Can't use the transaction anymore")
             r = self.do_post(headers=transaction_headers)
-            self.assertEqual(409, r.status_code, "Did not get expected response code")
+            self.checkResponse(TC.CONFLICT, r)
+
+    @Test
+    def createAndDeleteInTwoTransaction(self):
+
+        self.log("Create a transaction")
+        tx_id = self.createTransaction()
+
+        self.log("Create a container")
+        headers = {
+            TC.ATOMIC_ID_HEADER: tx_id
+        }
+        r = self.do_post(headers=headers)
+        self.checkResponse(TC.CREATED, r, tx_id)
+        container_location = self.get_location(r)
+
+        self.log("Get the container")
+        r = self.do_get(container_location, headers=headers)
+        self.checkResponse(TC.OK, r, tx_id)
+
+        self.log("Commit the transaction")
+        r = self.do_put(tx_id)
+        self.checkResponse(TC.NO_CONTENT, r, tx_id)
+
+        self.log("Get the container outside transaction")
+        r = self.do_get(container_location)
+        self.checkResponse(TC.OK, r)
+
+        self.log("Create a new transaction")
+        tx_id = self.createTransaction()
+        headers = {
+            TC.ATOMIC_ID_HEADER: tx_id
+        }
+
+        self.log("Delete the container")
+        r = self.do_delete(container_location, headers=headers)
+        self.checkResponse(TC.NO_CONTENT, r, tx_id)
+
+        self.log("Container exists outside the transaction")
+        r = self.do_get(container_location)
+        self.checkResponse(TC.OK, r, tx_id)
+
+        self.log("Container does not exist inside the transaction")
+        r = self.do_get(container_location, headers=headers)
+        self.checkResponse(TC.GONE, r, tx_id)
+
+        self.log("Commit the transaction")
+        r = self.do_put(tx_id)
+        self.checkResponse(TC.NO_CONTENT, r, tx_id)
+
+        self.log("Container does not exist outside the transaction")
+        r = self.do_get(container_location)
+        self.checkResponse(TC.GONE, r, tx_id)
+
+    @Test
+    def createAndDeleteInOneTransaction(self):
+
+        tx_id = self.createTransaction()
+
+        self.log("Create a container")
+        headers = {
+            TC.ATOMIC_ID_HEADER: tx_id
+        }
+        r = self.do_post(headers=headers)
+        self.checkResponse(TC.CREATED, r, tx_id)
+        container_location = self.get_location(r)
+
+        self.log("Get the container: {}".format(container_location))
+        r = self.do_get(container_location, headers=headers)
+        self.checkResponse(TC.OK, r, tx_id)
+
+        self.log("Delete the container")
+        r = self.do_delete(container_location, headers=headers)
+        self.checkResponse(TC.NO_CONTENT, r, tx_id)
+
+        self.log("Check its NOT FOUND")
+        r = self.do_get(container_location, headers=headers)
+        self.checkResponse(TC.NOT_FOUND, r, tx_id)
+
+        self.log("Commit the transaction")
+        r = self.do_put(tx_id)
+        self.checkResponse(TC.NO_CONTENT, r)
+
+    @Test
+    def testTransactionExclusion(self):
+        self.log("Create a container.")
+        r = self.do_post()
+        self.checkResponse(TC.CREATED, r)
+        container_id = self.get_location(r)
+
+        self.log("Get the container")
+        r = self.do_get(container_id)
+        self.checkResponse(TC.OK, r)
+        
+        tx_location = self.createTransaction()
+
+        self.log("Delete the container in the transaction")
+        txheaders = {
+            TC.ATOMIC_ID_HEADER: tx_location
+        }
+        r = self.do_delete(container_id, headers=txheaders)
+        self.checkResponse(TC.NO_CONTENT, r, tx_location)
+        self.log("Ensure the container is removed in the transaction.")
+        r = self.do_get(container_id, headers=txheaders)
+        self.checkResponse(TC.GONE, r, tx_location)
+        self.log("Inside a transaction delete the tombstone.")
+        r = self.do_delete(container_id + "/" + TC.FCR_TOMBSTONE, headers=txheaders)
+        self.checkResponse(TC.NO_CONTENT, r, tx_location)
+        self.log("Ensure the container is totally removed in the transaction.")
+        r = self.do_get(container_id, headers=txheaders)
+        self.checkResponse(TC.NOT_FOUND, r, tx_location)
+        self.log("Extend the transaction")
+        r = self.do_post(tx_location)
+        self.checkResponse(TC.NO_CONTENT, r, tx_location)
+        r = self.do_post(tx_location)
+        self.checkResponse(TC.NO_CONTENT, r, tx_location)
+
+        self.log("Inside the transaction put back the container.")
+        r = self.do_put(container_id, headers=txheaders)
+        self.checkResponse(TC.CREATED, r, tx_location)
+        self.log("Commit the transaction.")
+        r = self.do_put(tx_location)
+        self.checkResponse(TC.NO_CONTENT, r, tx_location)
+        self.log("Verify you can still get the container.")
+        r = self.do_get(container_id)
+        self.checkResponse(TC.OK, r)
+
+    ''' Waiting on https://fedora-repository.atlassian.net/browse/FCREPO-3827 '''
+    #@Test
+    def aPlainUserTransactionRollback(self):
+        self.log("Create a resource")
+        r = self.do_post()
+        self.checkResponse(TC.CREATED, r)
+        container_id = self.get_location(r)
+
+        auth = "@prefix acl: <{0}>.\n" \
+               "@prefix fedora: <{1}>.\n" \
+               "<#container> a acl:Authorization ;\n" \
+               "  acl:mode acl:Read, acl:Write, acl:Append, acl:Control ;\n" \
+               "  acl:accessTo <{2}> ;\n" \
+               "  acl:default <{2}> ;\n" \
+               "  acl:agent \"{3}\" .\n".format(TC.ACL_NS, TC.FEDORA_NS, container_id, self.config[TC.USER_NAME_PARAM])
+
+        self.log("Set up ACL with user having full access.")
+        r = self.do_put(container_id + "/" + TC.FCR_ACL, headers={"Content-type": "text/turtle"}, body=auth, admin=True)
+        self.checkResponse(TC.CREATED, r)
+
+        self.log("Have user read the item")
+        r = self.do_get(container_id, admin=False)
+        self.checkResponse(TC.OK, r)
+        self.log("Have the user patch the item")
+        patch = "INSERT DATA { <> <http://purl.org/dc/elements/1.1/title> \"Some title\" }"
+        r = self.do_patch(container_id, headers={"Content-type": "application/sparql-update"}, body=patch, admin=False)
+        self.checkResponse(TC.NO_CONTENT, r)
+        self.log("Start a transaction")
+        tx_id = self.createTransaction(False)
+        tx_headers = {TC.ATOMIC_ID_HEADER: tx_id}
+        self.log("Add a child object")
+        r = self.do_post(container_id, headers=tx_headers, admin=False)
+        self.checkResponse(TC.CREATED, r, tx_id)
+        child = self.get_location(r)
+        self.log("Test getting the child (" + child + ") in transaction")
+        r = self.do_get(child, admin=False, headers=tx_headers)
+        self.checkResponse(TC.OK, r, tx_id)
+        self.log("Rollback transaction")
+        r = self.do_delete(tx_id, admin=False)
+        self.checkResponse(TC.NO_CONTENT, r, tx_id)

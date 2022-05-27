@@ -12,18 +12,25 @@ LOG_FILE_PARAM = "logfile"
 SELECTED_TESTS_PARAM = "selected_tests"
 SOLR_URL_PARAM = "solrurl"
 TRIPLESTORE_URL_PARAM = "triplestoreurl"
+# API Test Suite things
+USER_URL_PREFIX = "http://example.com/"
 # Via RFC 7231 3.3
 PAYLOAD_HEADERS = ['Content-Length', 'Content-Range', 'Trailer', 'Transfer-Encoding']
 
 # Fedora specific constants
 FEDORA_NS = "http://fedora.info/definitions/v4/repository#"
+FEDORA_API_NS = "http://fedora.info/definitions/fcrepo#"
 FCR_VERSIONS = "fcr:versions"
 FCR_FIXITY = "fcr:fixity"
 FCR_TX = "fcr:tx"
 FCR_TOMBSTONE = "fcr:tombstone"
+FCR_ACL = "fcr:acl"
+FCR_SEARCH = "fcr:search"
+FCR_METADATA = "fcr:metadata"
 SERVER_MANAGED = FEDORA_NS + "ServerManaged"
-INBOUND_REFERENCE = FEDORA_NS + "InboundReferences"
+INBOUND_REFERENCE = FEDORA_API_NS + "PreferInboundReferences"
 EMBEDED_RESOURCE = FEDORA_NS + "EmbedResources"
+ATOMIC_ID_HEADER="Atomic-ID"
 
 FEDORA_TX_NS = "http://fedora.info/definitions/v4/transaction#"
 FEDORA_TX_ENDPOINT_REL = FEDORA_TX_NS + "endpoint"
@@ -37,6 +44,8 @@ PREFER_PATTERN = "return=representation; {0}=\"{1}\""
 RFC_1123_FORMAT = "%a, %d %b %Y %H:%M:%S GMT"
 
 # General Mime and LDP constants
+FEDORA_BINARY = FEDORA_NS + "Binary"
+
 JSONLD_MIMETYPE = "application/ld+json"
 SPARQL_UPDATE_MIMETYPE = "application/sparql-update"
 TURTLE_MIMETYPE = "text/turtle"
@@ -74,3 +83,18 @@ PCDM_CONTAINER_TTL = "@prefix dc: <http://purl.org/dc/elements/1.1/> ." \
                      "@prefix pcdm: <http://pcdm.org/models#> ." \
                      "<> a pcdm:Object ;" \
                      "dc:title \"{0}\" .".format(PCDM_CONTAINER_TITLE)
+# Standard Response codes
+CREATED = 201
+NO_CONTENT = 204
+OK = 200
+NOT_FOUND = 404
+CONFLICT = 409
+GONE = 410
+BAD_REQUEST = 400
+METHOD_NOT_ALLOWED = 405
+
+# Some standard properties
+DC_NAMESPACE = "http://purl.org/dc/elements/1.1/"
+RDF_NAMESPACE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+DC_TITLE = "{}title".format(DC_NAMESPACE)
+RDF_TYPE = "{}type".format(RDF_NAMESPACE)

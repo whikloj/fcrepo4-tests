@@ -65,6 +65,17 @@ class FedoraTests(unittest.TestCase):
             print("Cannot connect the Fedora server, is your configuration correct? {0}".format(baseurl))
             quit()
 
+    def get_transaction_provider(self):
+        headers = {
+            'Accept': TestConstants.JSONLD_MIMETYPE
+        }
+        r = self.do_head(self.getFedoraBase(), headers=headers)
+        self.assertEqual(200, r.status_code, "Did not get expected response")
+        link_headers = self.get_link_headers(r)
+        if TestConstants.FEDORA_TX_ENDPOINT_REL in link_headers.keys():
+            return link_headers.get(TestConstants.FEDORA_TX_ENDPOINT_REL)[0]
+        return None
+
     @staticmethod
     def create_auth(username, password):
         """ Create a Basic Auth object using the provided username:password """
@@ -322,6 +333,11 @@ class FedoraTests(unittest.TestCase):
                 self.fail("Did not find expected header value for header {0}, found {1} expected {2}"
                           .format(name, response.headers[name], value))
 
+    def assertContrainedByHeaderExists(self, response):
+        """ Check for link headers with the constrainedby rel type """
+        self.assertLinkHeaderExists(response, "http://www.w3.org/ns/ldp#constrainedBy")
+
+
     @staticmethod
     def log(message):
         print(message)
@@ -335,7 +351,7 @@ class FedoraTests(unittest.TestCase):
         self.checkValue(expected, response.status_code)
 
     def checkValue(self, expected, received):
-        self.assertEqual(expected, received, "Did not get expected value")
+        self.assertEqual(expected, received, "Expected {} but received {}".format(expected, received))
         FedoraTests.log("   Passed {0} == {0}".format(received))
 
     def createBasicContainer(self, parent_location):
@@ -344,6 +360,14 @@ class FedoraTests(unittest.TestCase):
             'Content-type': TestConstants.TURTLE_MIMETYPE
         }
         return self.do_post(parent_location, headers, TestConstants.OBJECT_TTL)
+
+    def verifyGet(self, uri, admin=True):
+        r = self.do_get(uri, admin=admin)
+        self.checkResponse(TestConstants.OK, r)
+
+    def verifyGone(self, uri, admin=True):
+        r = self.do_get(uri, admin=admin)
+        self.checkResponse(TestConstants.GONE, r)
 
 
 def Test(func):

@@ -1,6 +1,6 @@
 #!/bin/env python
 
-import TestConstants
+import TestConstants as TC
 from abstract_fedora_tests import FedoraTests, register_tests, Test
 import os
 import pyjq
@@ -66,7 +66,7 @@ class FedoraBasicIxnTests(FedoraTests):
         self.assertEqual(410, r.status_code, "Did not get expected response")
 
         self.log("Delete the tombstone")
-        r = self.do_delete(container_location + "/" + TestConstants.FCR_TOMBSTONE)
+        r = self.do_delete(container_location + "/" + TC.FCR_TOMBSTONE)
         self.assertEqual(204, r.status_code, "Did not get expected response")
 
         self.log("Check container doesn't exists")
@@ -82,25 +82,25 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testBasicContainer(self):
-        self.createTestResource(TestConstants.LDP_BASIC)
+        self.createTestResource(TC.LDP_BASIC)
 
     @Test
     def testDirectContainer(self):
-        self.createTestResource(TestConstants.LDP_DIRECT)
+        self.createTestResource(TC.LDP_DIRECT)
 
     @Test
     def testIndirectContainer(self):
-        self.createTestResource(TestConstants.LDP_INDIRECT)
+        self.createTestResource(TC.LDP_INDIRECT)
 
     @Test
     def testNonRdfSource(self):
         testfiles = {'files': ('testdata.csv', 'this,is,some,data\n')}
-        self.createTestResource(TestConstants.LDP_NON_RDF_SOURCE, files=testfiles)
+        self.createTestResource(TC.LDP_NON_RDF_SOURCE, files=testfiles)
 
     @Test
     def testLdpResource(self):
         """ We don't allow you to create a ldp:Resource so this returns 400 Bad Request """
-        link_type = self.make_type(TestConstants.LDP_RESOURCE)
+        link_type = self.make_type(TC.LDP_RESOURCE)
         headers = {
             'Link': link_type
         }
@@ -110,7 +110,7 @@ class FedoraBasicIxnTests(FedoraTests):
     @Test
     def testLdpContainer(self):
         """ We don't allow you to create a ldp:Container so this returns 400 Bad Request """
-        link_type = self.make_type(TestConstants.LDP_CONTAINER)
+        link_type = self.make_type(TC.LDP_CONTAINER)
         headers = {
             'Link': link_type
         }
@@ -146,7 +146,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
         self.log("Verify containment")
         headers = {
-            'Accept': TestConstants.JSONLD_MIMETYPE
+            'Accept': TC.JSONLD_MIMETYPE
         }
         r = self.do_get(location, headers=headers)
         self.assertEqual(200, r.status_code, "Can't get the container")
@@ -186,6 +186,59 @@ class FedoraBasicIxnTests(FedoraTests):
         r = self.do_get(location)
         self.assertEqual(410, r.status_code, "Did not get expected status code")
 
+    @Test
+    def testPurgeContainer(self):
+        r = self.do_post()
+        self.checkResponse(TC.CREATED, r)
+        uri = self.get_location(r)
+
+        self.verifyGet(uri)
+
+        r = self.do_post(uri)
+        self.checkResponse(TC.CREATED, r)
+        childUri = self.get_location(r)
+
+        r = self.do_delete(childUri)
+        self.checkResponse(TC.NO_CONTENT, r)
+
+        r = self.do_get(childUri)
+        self.checkResponse(TC.GONE, r)
+
+        r = self.do_delete(childUri + "/" + TC.FCR_TOMBSTONE)
+        self.checkResponse(TC.NO_CONTENT, r)
+
+        r = self.do_get(childUri)
+        self.checkResponse(TC.NOT_FOUND, r)
+
+        r = self.do_put(childUri)
+        self.checkResponse(TC.CREATED, r)
+
+    @Test
+    def testPurgeBinary(self):
+        headers = {
+            'Link': "<{}>; rel=\"type\"".format(TC.LDP_NON_RDF_SOURCE)
+        }
+        r = self.do_post(headers=headers, body="some text")
+        self.checkResponse(TC.CREATED, r)
+        childUri = self.get_location(r)
+
+        self.verifyGet(childUri)
+
+        r = self.do_delete(childUri)
+        self.checkResponse(TC.NO_CONTENT, r)
+
+        r = self.do_get(childUri)
+        self.checkResponse(TC.GONE, r)
+
+        r = self.do_delete(childUri + "/" + TC.FCR_TOMBSTONE)
+        self.checkResponse(TC.NO_CONTENT, r)
+
+        r = self.do_get(childUri)
+        self.checkResponse(TC.NOT_FOUND, r)
+
+        r = self.do_put(childUri)
+        self.checkResponse(TC.CREATED, r)
+
     def changeIxnModels(self, location, starting_model):
         """ This function uses a created object at {location} with starting type {starting_model}.
             The below dictionary of tuples works as such
@@ -194,39 +247,39 @@ class FedoraBasicIxnTests(FedoraTests):
                     (<Model to change to>, <expected response status code>),
             """
         expected_ixn_change = {
-            TestConstants.LDP_BASIC: [
-                (TestConstants.LDP_INDIRECT, 409),
-                (TestConstants.LDP_DIRECT, 409),
-                (TestConstants.LDP_NON_RDF_SOURCE, 409),
-                (TestConstants.LDP_RESOURCE, 400),
-                (TestConstants.LDP_CONTAINER, 400)
+            TC.LDP_BASIC: [
+                (TC.LDP_INDIRECT, 409),
+                (TC.LDP_DIRECT, 409),
+                (TC.LDP_NON_RDF_SOURCE, 409),
+                (TC.LDP_RESOURCE, 400),
+                (TC.LDP_CONTAINER, 400)
             ],
-            TestConstants.LDP_DIRECT: [
-                (TestConstants.LDP_BASIC, 409),
-                (TestConstants.LDP_INDIRECT, 409),
-                (TestConstants.LDP_NON_RDF_SOURCE, 409),
-                (TestConstants.LDP_RESOURCE, 400),
-                (TestConstants.LDP_CONTAINER, 400)
+            TC.LDP_DIRECT: [
+                (TC.LDP_BASIC, 409),
+                (TC.LDP_INDIRECT, 409),
+                (TC.LDP_NON_RDF_SOURCE, 409),
+                (TC.LDP_RESOURCE, 400),
+                (TC.LDP_CONTAINER, 400)
             ],
-            TestConstants.LDP_INDIRECT: [
-                (TestConstants.LDP_BASIC, 409),
-                (TestConstants.LDP_DIRECT, 409),
-                (TestConstants.LDP_NON_RDF_SOURCE, 409),
-                (TestConstants.LDP_RESOURCE, 400),
-                (TestConstants.LDP_CONTAINER, 400)
+            TC.LDP_INDIRECT: [
+                (TC.LDP_BASIC, 409),
+                (TC.LDP_DIRECT, 409),
+                (TC.LDP_NON_RDF_SOURCE, 409),
+                (TC.LDP_RESOURCE, 400),
+                (TC.LDP_CONTAINER, 400)
             ],
-            TestConstants.LDP_NON_RDF_SOURCE: [
-                (TestConstants.LDP_BASIC, 409),
-                (TestConstants.LDP_DIRECT, 409),
-                (TestConstants.LDP_INDIRECT, 409),
-                (TestConstants.LDP_RESOURCE, 400),
-                (TestConstants.LDP_CONTAINER, 400)
+            TC.LDP_NON_RDF_SOURCE: [
+                (TC.LDP_BASIC, 409),
+                (TC.LDP_DIRECT, 409),
+                (TC.LDP_INDIRECT, 409),
+                (TC.LDP_RESOURCE, 400),
+                (TC.LDP_CONTAINER, 400)
             ]
         }
         for model, result in expected_ixn_change[starting_model]:
             self.log("Changing from {0} to {1} expect status {2}".format(starting_model, model, result))
 
-            if model == TestConstants.LDP_NON_RDF_SOURCE:
+            if model == TC.LDP_NON_RDF_SOURCE:
                 files = {'file': ('testcsvdata.csv', 'this,is,changed,data\nnow,go,away,please\n')}
             else:
                 files = None
@@ -241,18 +294,58 @@ class FedoraBasicIxnTests(FedoraTests):
     @Test
     def testChangeIxnModel(self):
         self.log("Create a basic container")
-        basic = self.createTestResource(TestConstants.LDP_BASIC)
-        self.changeIxnModels(basic, TestConstants.LDP_BASIC)
+        basic = self.createTestResource(TC.LDP_BASIC)
+        self.changeIxnModels(basic, TC.LDP_BASIC)
 
         self.log("Create a direct container")
-        direct = self.createTestResource(TestConstants.LDP_DIRECT)
-        self.changeIxnModels(direct, TestConstants.LDP_DIRECT)
+        direct = self.createTestResource(TC.LDP_DIRECT)
+        self.changeIxnModels(direct, TC.LDP_DIRECT)
 
         self.log("Create a indirect container")
-        indirect = self.createTestResource(TestConstants.LDP_INDIRECT)
-        self.changeIxnModels(indirect, TestConstants.LDP_INDIRECT)
+        indirect = self.createTestResource(TC.LDP_INDIRECT)
+        self.changeIxnModels(indirect, TC.LDP_INDIRECT)
 
         self.log("Create a Non Rdf Source")
         testfiles = {'files': ('testdata.csv', 'this,is,some,data\n')}
-        non_rdf = self.createTestResource(TestConstants.LDP_NON_RDF_SOURCE, files=testfiles)
-        self.changeIxnModels(non_rdf, TestConstants.LDP_NON_RDF_SOURCE)
+        non_rdf = self.createTestResource(TC.LDP_NON_RDF_SOURCE, files=testfiles)
+        self.changeIxnModels(non_rdf, TC.LDP_NON_RDF_SOURCE)
+
+    def testBinaryTriples(self):
+        self.log("Create binary with expected properties")
+        headers = {
+            'Content-type': 'text/plain',
+            'Content-Disposition': 'attachment; filename="mytestfile.txt"'
+        }
+        r = self.do_post(self.getBaseUri(), headers=headers, body="some sample text")
+        self.checkResponse(TC.CREATED, r)
+
+    def testChecksum(self):
+        self.log("Create parent resource")
+        r = self.do_post(self.getBaseUri());
+        self.checkResponse(TC.CREATED, r)
+        parent_uri = self.get_location(r)
+
+        first_etag = self.getEtag(parent_uri)
+
+        r = self.do_post(parent_uri)
+        self.checkResponse(TC.CREATED, r)
+
+        second_etag = self.getEtag(parent_uri)
+
+        self.assertNotEqual(first_etag, second_etag)
+
+        for i in range(1, 30):
+            r = self.do_post(parent_uri, {'Slug': 'child_' + i})
+            self.checkResponse(TC.CREATED, r)
+
+        third_etag = self.getEtag(parent_uri)
+
+
+        self.assertNotEqual(first_etag, third_etag)
+        self.assertNotEqual(second_etag, third_etag)
+
+    def getEtag(self, uri):
+        r = self.do_head(uri)
+        self.assertTrue(TC.OK, r)
+        if "ETag" in r.headers:
+            return r.headers["ETag"]

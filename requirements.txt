@@ -1,3 +1,4 @@
 PyYAML>=5.4
 requests>=2.20.0
 pyjq>=2.3.0
+rdflib>=5.0.0

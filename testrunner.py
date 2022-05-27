@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import argparse
 import TestConstants
@@ -19,6 +19,7 @@ from transaction_tests import FedoraTransactionTests
 from authz_tests import FedoraAuthzTests
 from indirect_tests import FedoraIndirectTests
 from camel_tests import FedoraCamelTests
+from ssearch_tests import FedoraSimpleSearchTests
 
 
 class FedoraTestRunner:
@@ -103,6 +104,9 @@ class FedoraTestRunner:
             if test == 'all' or test == 'indirect':
                 indirect = FedoraIndirectTests(self.config)
                 indirect.run_tests()
+            if test == 'all' or test == 'search':
+                search = FedoraSimpleSearchTests(self.config)
+                search.run_tests()
             if test == 'camel':
                 camel = FedoraCamelTests(self.config)
                 camel.run_tests()
@@ -123,7 +127,8 @@ def csv_list(string):
 
 
 class CSVAction(argparse.Action):
-    valid_options = ["authz", "basic", "sparql", "rdf", "version", "transaction", "fixity", "indirect", "camel"]
+    valid_options = ["authz", "basic", "sparql", "rdf", "version", "transaction", "fixity", "indirect", "camel",
+                     "search"]
 
     def __call__(self, parser, args, values, option_string=None):
         if isinstance(values, list):

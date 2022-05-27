@@ -14,7 +14,14 @@ class FedoraFixityTests(FedoraTests):
     CONTAINER = "/test_fixity"
 
     # Sha1 fixity result for basic_image.jpg in the resource sub-directory
-    FIXITY_RESULT = "urn:sha1:dec028a4400b4f7ed80ed1174e65179d6b57a0f2"
+    FIXITY_RESULT_SHA1 = "dec028a4400b4f7ed80ed1174e65179d6b57a0f2"
+
+    def decode_digest_header(self, header):
+        digests = dict()
+        for digest in header.split(","):
+            (alg, value) = digest.split('=')
+            digests[alg] = value
+        return digests
 
     @Test
     def aFixityTest(self):
@@ -29,17 +36,18 @@ class FedoraFixityTests(FedoraTests):
             self.assertEqual(201, r.status_code, 'Did not create binary')
             location = self.get_location(r)
 
-        fixity_endpoint = location + "/" + TestConstants.FCR_FIXITY
         self.log("Get a fixity result")
         headers = {
-            'Accept': TestConstants.JSONLD_MIMETYPE
+            'Want-Digest': 'sha'
         }
-        r = self.do_get(fixity_endpoint, headers=headers)
+        r = self.do_head(location, headers=headers)
         self.assertEqual(200, r.status_code, "Can't get the fixity result")
-        body = r.content.decode('UTF-8').rstrip('\ny')
-        json_body = json.loads(body)
-        fixity_id = pyjq.first('.[0]."http://www.loc.gov/premis/rdf/v1#hasFixity"| .[]?."@id"', json_body)
-        fixity_result = pyjq.first('.[] | select(."@id" == "{0}") | '
-                                   '."http://www.loc.gov/premis/rdf/v1#hasMessageDigest" | .[]?."@id"'.format(fixity_id),
-                                   json_body)
-        self.assertEqual(self.FIXITY_RESULT, fixity_result, "Fixity result was not a match for expected.")
+        if 'Digest' in r.headers:
+            fixity_results = self.decode_digest_header(r.headers['Digest'])
+            if 'sha' in fixity_results.keys():
+                self.assertEqual(self.FIXITY_RESULT_SHA1, fixity_results['sha'],
+                                 "Fixity result was not a match for expected.")
+            else:
+                self.fail("No sha digest returned")
+        else:
+            self.fail("No Digest header returned")
