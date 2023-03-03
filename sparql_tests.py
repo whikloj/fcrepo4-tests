@@ -26,7 +26,7 @@ class FedoraSparqlTests(FedoraTests):
             'Content-type': 'text/turtle'
         }
         r = self.do_post(self.getBaseUri(), headers=headers, body=TC.OBJECT_TTL)
-        self.assertEqual(201, r.status_code, "Did not create container")
+        self.checkResponse(201, r)
         location = self.get_location(r)
 
         self.log("Set dc:title with SPARQL")
@@ -34,12 +34,12 @@ class FedoraSparqlTests(FedoraTests):
             'Content-type': TC.SPARQL_UPDATE_MIMETYPE
         }
         r = self.do_patch(location, headers=patch_headers, body=self.TITLE_SPARQL)
-        self.assertEqual(204, r.status_code, "Did not get expected result")
+        self.checkResponse(204, r)
         self.assertTitleExists("First title", location)
 
         self.log("Update dc:title with SPARQL")
         r = self.do_patch(location, headers=patch_headers, body=self.UPDATE_SPARQL)
-        self.assertEqual(204, r.status_code, "Did not get expected results")
+        self.checkResponse(204, r)
         self.assertTitleExists("Updated title", location)
 
     @Test
@@ -51,7 +51,7 @@ class FedoraSparqlTests(FedoraTests):
         with open(os.path.join(os.getcwd(), 'resources', 'basic_image.jpg'), 'rb') as fp:
             data = fp.read()
             r = self.do_post(self.getBaseUri(), headers=headers, body=data)
-            self.assertEqual(201, r.status_code, "Did not get expected response")
+            self.checkResponse(201, r)
             description = self.find_binary_description(r)
 
         self.log("Set dc:title with SPARQL")
@@ -59,19 +59,19 @@ class FedoraSparqlTests(FedoraTests):
             'Content-type': TC.SPARQL_UPDATE_MIMETYPE
         }
         r = self.do_patch(description, headers=patch_headers, body=self.TITLE_SPARQL)
-        self.assertEqual(204, r.status_code, "Did not get expected result")
+        self.checkResponse(204, r)
         self.assertTitleExists("First title", description)
 
         self.log("Update dc:title with SPARQL")
         r = self.do_patch(description, headers=patch_headers, body=self.UPDATE_SPARQL)
-        self.assertEqual(204, r.status_code, "Did not get expected results")
+        self.checkResponse(204, r)
         self.assertTitleExists("Updated title", description)
 
     @Test
     def doUnicodeSparql(self):
         self.log("Create a container")
         r = self.do_post(self.getBaseUri())
-        self.assertEqual(201, r.status_code, "Did not get expected response code")
+        self.checkResponse(201, r)
         location = self.get_location(r)
 
         sparql = "PREFIX dc: <http://purl.org/dc/elements/1.1/> " \
@@ -83,14 +83,14 @@ class FedoraSparqlTests(FedoraTests):
             'Content-type': TC.SPARQL_UPDATE_MIMETYPE
         }
         r = self.do_patch(location, headers=headers, body=sparql)
-        self.assertEqual(204, r.status_code, "Did not get expected response code")
+        self.checkResponse(204, r)
         self.assertTitleExists("Die von Blumenbach gegründete anthropologische Sammlung der Universität", location)
 
     @Test
     def doAddType(self):
         self.log("Create a container")
         r = self.do_post(self.getBaseUri())
-        self.assertEqual(201, r.status_code, "Did not get expected response code")
+        self.checkResponse(201, r)
         location = self.get_location(r)
 
         sparql = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> " \
@@ -102,14 +102,14 @@ class FedoraSparqlTests(FedoraTests):
             'Content-type': TC.SPARQL_UPDATE_MIMETYPE
         }
         r = self.do_patch(location, headers=headers, body=sparql)
-        self.assertEqual(204, r.status_code, "Did not get expected response code")
+        self.checkResponse(204, r)
         self.assertTypeExists("http://www.example.org/ns#type", location)
 
     @Test
     def doAddRestrictedType(self):
         self.log("Create a container")
         r = self.do_post(self.getBaseUri())
-        self.assertEqual(201, r.status_code, "Did not get expected response code")
+        self.checkResponse(201, r)
         location = self.get_location(r)
 
         sparql = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> " \
@@ -121,7 +121,7 @@ class FedoraSparqlTests(FedoraTests):
             'Content-type': TC.SPARQL_UPDATE_MIMETYPE
         }
         r = self.do_patch(location, headers=headers, body=sparql)
-        self.assertEqual(409, r.status_code, "Did not get expected response code")
+        self.checkResponse(409, r)
 
     @Test
     def doInboundReferenceContainer(self):

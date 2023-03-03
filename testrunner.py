@@ -182,11 +182,8 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--tests', dest="selected_tests", help='Comma separated list of which tests to run from '
                         '{0}. Defaults to running all tests'.format(", ".join(CSVAction.valid_options)),
                         default=['all'], type=csv_list, action=CSVAction)
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('-v', dest='debug_level', action='store_const', const=1, default=0,
-                       help='Set verbosity to level 1')
-    group.add_argument('-vv', dest='debug_level', action='store_const', const=2, default=0,
-                       help='Set verbosity to level 2')
+    parser.add_argument('-v', dest='debug_level', action='store_const', const=1, default=0,
+                        help='Set verbosity to level 1')
 
     args = parser.parse_args()
     tests = FedoraTestRunner()
