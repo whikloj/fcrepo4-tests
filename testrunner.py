@@ -36,13 +36,26 @@ class FedoraTestRunner:
         (TestConstants.LOG_FILE_PARAM, False),
         (TestConstants.SELECTED_TESTS_PARAM, False),
         (TestConstants.SOLR_URL_PARAM, False),
-        (TestConstants.TRIPLESTORE_URL_PARAM, False)
+        (TestConstants.TRIPLESTORE_URL_PARAM, False),
+        ('debug_level', False),
     ]
     config = {}
     logger = None
 
-    def set_up(self, args):
-        self.parse_cmdline_args(args)
+    tests = {
+        'basic': FedoraBasicIxnTests,
+        'version': FedoraVersionTests,
+        'fixity': FedoraFixityTests,
+        'rdf': FedoraRdfTests,
+        'sparql': FedoraSparqlTests,
+        'transaction': FedoraTransactionTests,
+        'authz': FedoraAuthzTests,
+        'indirect': FedoraIndirectTests,
+        'search': FedoraSimpleSearchTests,
+    }
+
+    def set_up(self, setup_args):
+        self.parse_cmdline_args(setup_args)
         self.check_config()
 
     def load_config(self, file, site):
@@ -52,7 +65,7 @@ class FedoraTestRunner:
                     yml = load(fp.read(), Loader=SafeLoader)
                     self.config = yml.get(site)
 
-    def parse_cmdline_args(self, args):
+    def parse_cmdline_args(self, command_args):
         filename = eval('args.' + TestConstants.CONFIG_FILE_PARAM)
         if filename is not None:
             sitename = eval('args.' + TestConstants.SITE_NAME_PARAM)
@@ -78,42 +91,39 @@ class FedoraTestRunner:
                 if param_status:
                     raise Exception("Missing config parameter (" + param_name + ")")
 
-    def run_tests(self):
-        for test in self.config[TestConstants.SELECTED_TESTS_PARAM]:
-            if test == 'all' or test == 'basic':
-                nested = FedoraBasicIxnTests(self.config)
-                nested.run_tests()
-            if test == 'all' or test == 'version':
-                versioning = FedoraVersionTests(self.config)
-                versioning.run_tests()
-            if test == 'all' or test == 'fixity':
-                fixity = FedoraFixityTests(self.config)
-                fixity.run_tests()
-            if test == 'all' or test == 'rdf':
-                rdf = FedoraRdfTests(self.config)
-                rdf.run_tests()
-            if test == 'all' or test == 'sparql':
-                sparql = FedoraSparqlTests(self.config)
-                sparql.run_tests()
-            if test == 'all' or test == 'transaction':
-                transaction = FedoraTransactionTests(self.config)
-                transaction.run_tests()
-            if test == 'all' or test == 'authz':
-                authz = FedoraAuthzTests(self.config)
-                authz.run_tests()
-            if test == 'all' or test == 'indirect':
-                indirect = FedoraIndirectTests(self.config)
-                indirect.run_tests()
-            if test == 'all' or test == 'search':
-                search = FedoraSimpleSearchTests(self.config)
-                search.run_tests()
-            if test == 'camel':
-                camel = FedoraCamelTests(self.config)
-                camel.run_tests()
+    def run_tests(self) -> dict:
+        results = {}
+        for chosen_test in self.config[TestConstants.SELECTED_TESTS_PARAM]:
+            if chosen_test == 'all':
+                for test_param, test_class in self.tests.items():
+                    instance = test_class(self.config)
+                    instance.run_tests()
+                    results[instance.__class__.__name__] = instance.results
+                if chosen_test == 'camel':
+                    camel = FedoraCamelTests(self.config)
+                    camel.run_tests()
+            else:
+                test_class = self.tests[chosen_test]
+                instance = test_class(self.config)
+                instance.run_tests()
+                results[instance.__class__.__name__] = instance.results
+        return results
 
-    def main(self, args):
-        self.set_up(args)
-        self.run_tests()
+    @staticmethod
+    def report(test_results: dict):
+        """ Print out the test results collected from the various tests. """
+        if len(test_results) > 0:
+            print("\n{:-^50}".format("Test Results"))
+            for k, results in test_results.items():
+                print(f"\nTest Class: {k}")
+                for method, result in results.items():
+                    print(f"  Method: {method}, Result: ", end="")
+                    print("Pass") if result['result'] else print(f"Failed, {result['message']}")
+
+    def main(self, application_args):
+        self.set_up(application_args)
+        results = self.run_tests()
+        self.report(results)
 
 
 def csv_list(string):
@@ -172,6 +182,11 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--tests', dest="selected_tests", help='Comma separated list of which tests to run from '
                         '{0}. Defaults to running all tests'.format(", ".join(CSVAction.valid_options)),
                         default=['all'], type=csv_list, action=CSVAction)
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-v', dest='debug_level', action='store_const', const=1, default=0,
+                       help='Set verbosity to level 1')
+    group.add_argument('-vv', dest='debug_level', action='store_const', const=2, default=0,
+                       help='Set verbosity to level 2')
 
     args = parser.parse_args()
     tests = FedoraTestRunner()

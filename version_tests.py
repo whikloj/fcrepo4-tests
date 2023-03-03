@@ -7,7 +7,7 @@ import rdflib
 from rdflib.namespace import DC, RDF
 
 
-def getVersionEndpoint(uri):
+def get_version_endpoint(uri):
     if not uri.endswith("/" + TestConstants.FCR_VERSIONS):
         uri += "/" + TestConstants.FCR_VERSIONS
     return uri
@@ -32,7 +32,7 @@ class FedoraVersionTests(FedoraTests):
     def checkMementoCount(self, expected, uri, admin=None):
         if admin is None:
             admin = True
-        uri = getVersionEndpoint(uri)
+        uri = get_version_endpoint(uri)
         headers = {
             'Accept': TestConstants.LINK_FORMAT_MIMETYPE
         }
@@ -43,7 +43,7 @@ class FedoraVersionTests(FedoraTests):
     def getNthMemento(self, uri, memento_number=1, admin=None):
         if admin is None:
             admin = True
-        uri = getVersionEndpoint(uri)
+        uri = get_version_endpoint(uri)
         headers = {
             'Accept': TestConstants.LINK_FORMAT_MIMETYPE
         }
@@ -58,7 +58,7 @@ class FedoraVersionTests(FedoraTests):
             self.fail("Count not get the {} memento, only found {}".format(memento_number+1, len(mementos)))
 
     # Waiting on https://fedora-repository.atlassian.net/browse/FCREPO-3655
-    # @Test
+    @Test
     def doContainerVersioningTest(self):
         headers = {
             'Link': self.make_type(TestConstants.LDP_BASIC)
@@ -164,11 +164,13 @@ class FedoraVersionTests(FedoraTests):
         r = self.do_get(description_version_endpoint)
         self.checkResponse(TestConstants.OK, r)
 
+        self.log("Wait for one second")
+        time.sleep(1)
         self.log("Create a version")
         r = self.do_post(version_endpoint)
         self.checkResponse(TestConstants.CREATED, r)
 
-        self.log("Try to create another version too quickly")
+        self.log("Try to create another version within a second")
         r = self.do_post(version_endpoint)
         self.checkResponse(TestConstants.CREATED, r)
 
@@ -178,9 +180,11 @@ class FedoraVersionTests(FedoraTests):
         r = self.do_post(description_version_endpoint)
         self.checkResponse(TestConstants.CREATED, r)
 
-        self.checkMementoCount(4, location)
-        self.checkMementoCount(4, description_location)
+        self.checkMementoCount(2, location)
+        self.checkMementoCount(2, description_location)
 
+        self.log("Wait one second")
+        time.sleep(1)
         new_date = FedoraTests.get_rfc_date("2000-06-01 08:21:00")
 
         self.log("Try to create a version with provided datetime")
@@ -220,7 +224,7 @@ class FedoraVersionTests(FedoraTests):
         self.checkResponse(TestConstants.CREATED, r)
 
         self.log("Count mementos")
-        self.checkMementoCount(7, version_endpoint)
+        self.checkMementoCount(4, version_endpoint)
 
         self.log("Try to DELETE the memento")
         r = self.do_delete(memento_location)
@@ -231,7 +235,7 @@ class FedoraVersionTests(FedoraTests):
         self.checkResponse(TestConstants.OK, r)
 
         self.log("Validate count of mementos again")
-        self.checkMementoCount(7, version_endpoint)
+        self.checkMementoCount(4, version_endpoint)
 
     @Test
     def checkBinaryVersioning(self):
@@ -263,6 +267,9 @@ class FedoraVersionTests(FedoraTests):
         r = self.do_get(metadata_versions, headers=link_headers)
         self.checkResponse(200, r)
         self.checkValue(1, self.count_mementos(r))
+
+        self.log("Wait a second")
+        time.sleep(1)
 
         self.log("Create version of binary from existing")
         r = self.do_post(binary_versions)

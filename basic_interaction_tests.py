@@ -1,4 +1,7 @@
 #!/bin/env python
+import shutil
+import tempfile
+import time
 
 import TestConstants as TC
 from abstract_fedora_tests import FedoraTests, register_tests, Test
@@ -20,17 +23,32 @@ class FedoraBasicIxnTests(FedoraTests):
         headers = {
             'Link': link_type
         }
+        self.log("Create the resource")
         r = self.do_post(self.getBaseUri(), headers=headers, files=files)
-        self.assertEqual(201, r.status_code, "Did not create container")
+        self.checkResponse(TC.CREATED, r)
         location = self.get_location(r)
         self.nodes.append(location)
+        self.log("GET the resource")
         r = self.do_get(location)
-        self.assertEqual(200, r.status_code, "Did not get container")
-        self.assertIsNotNone(r.headers['Link'], "Did not get any link headers returned")
+        self.checkResponse(TC.OK, r)
+        self.assertHeaderExists(r, 'Link')
         type_headers = FedoraTests.get_link_headers(r)
         self.assertIsNotNone(type_headers['type'], "Did not get any link headers with rel=type")
         self.assertIn(type, type_headers['type'], "Did not find link header for {}".format(type))
         return location
+
+    def getEtag(self, uri):
+        """ Get the eTag header for a specified URI. """
+        return self.getHeader(uri, "ETag")
+
+    def getStateToken(self, uri):
+        """ Get the X-State-Token header for a specified URI. """
+        return self.getHeader(uri, "X-State-Token")
+
+    def duplicateImage(self):
+        new_file = os.path.join(tempfile.gettempdir(), 'temp_image.jpeg')
+        shutil.copyfile(self.getImagePath(), new_file)
+        return new_file
 
     @Test
     def aTestMissingResource(self):
@@ -78,7 +96,6 @@ class FedoraBasicIxnTests(FedoraTests):
         self.log("Try to put to location again")
         r = self.do_put(container_location)
         self.assertEqual(201, r.status_code, "Did not get expected response")
-
 
     @Test
     def testBasicContainer(self):
@@ -319,33 +336,91 @@ class FedoraBasicIxnTests(FedoraTests):
         r = self.do_post(self.getBaseUri(), headers=headers, body="some sample text")
         self.checkResponse(TC.CREATED, r)
 
+    @Test
     def testChecksum(self):
         self.log("Create parent resource")
-        r = self.do_post(self.getBaseUri());
+        r = self.do_post(self.getBaseUri())
         self.checkResponse(TC.CREATED, r)
         parent_uri = self.get_location(r)
 
         first_etag = self.getEtag(parent_uri)
+        self.log(f"First etag of parent is {first_etag}")
 
+        self.log("Add child resource to parent")
         r = self.do_post(parent_uri)
         self.checkResponse(TC.CREATED, r)
 
         second_etag = self.getEtag(parent_uri)
-
-        self.assertNotEqual(first_etag, second_etag)
-
+        self.log(f"Second etag of parent is {second_etag}")
+        
+        self.log("Add 30 child resources to parent")
         for i in range(1, 30):
-            r = self.do_post(parent_uri, {'Slug': 'child_' + i})
+            r = self.do_post(parent_uri, {'Slug': 'child_' + str(i)})
             self.checkResponse(TC.CREATED, r)
 
         third_etag = self.getEtag(parent_uri)
+        self.log(f"Third etag of parent is {third_etag}")
 
+        self.assertNotEqual(first_etag, second_etag, "First and second state etags should not match")
+        self.assertNotEqual(first_etag, third_etag, "First and third state etag should not match")
+        self.assertNotEqual(second_etag, third_etag, "Second and third state etag should not match")
 
-        self.assertNotEqual(first_etag, third_etag)
-        self.assertNotEqual(second_etag, third_etag)
+    # @Test # These tests require Fedora to allow the paths, might require more thought.
+    def testExternalContentProxyLocal(self):
+        self.log("Create external content to local resource")
+        image_path = self.duplicateImage()
+        external_headers = {
+            "Link": "<file://{}>; rel =\"http://fedora.info/definitions/fcrepo#ExternalContent\"; "
+            "handling=\"proxy\"; type=\"image/jpeg\"".format(image_path)
+        }
+        r = self.do_post(headers=external_headers)
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+        r = self.do_get(location)
+        self.checkResponse(TC.OK, r)
+        self.assertHeaderExists(r, "Content-type", "image/jpeg")
+        self.log("Delete the local file")
+        os.unlink(image_path)
+        r = self.do_get(location)
+        self.checkResponse(TC.SERVER_ERROR, r)
 
-    def getEtag(self, uri):
-        r = self.do_head(uri)
-        self.assertTrue(TC.OK, r)
-        if "ETag" in r.headers:
-            return r.headers["ETag"]
+    # @Test # These tests require Fedora to allow the paths, might require more thought.
+    def testExternalContentProxyCopy(self):
+        self.log("Create external content to local resource")
+        image_path = self.duplicateImage()
+        external_headers = {
+            "Link": "<file://{}>; rel =\"http://fedora.info/definitions/fcrepo#ExternalContent\"; "
+            "handling=\"copy\"; type=\"image/jpeg\"".format(image_path)
+        }
+        r = self.do_post(headers=external_headers)
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+        r = self.do_get(location)
+        self.checkResponse(TC.OK, r)
+        self.assertHeaderExists(r, "Content-type", "image/jpeg")
+        self.log("Delete the local file")
+        os.unlink(image_path)
+        r = self.do_get(location)
+        self.checkResponse(TC.OK, r)
+
+    # @Test # These tests require Fedora to allow the paths, might require more thought.
+    def testExternalContentHttpProxy(self):
+        self.log("Create a resource")
+        with open(self.getImagePath(), 'rb') as fp:
+            data = fp.read()
+            r = self.do_post(headers={
+                "Content-type": "image/jpeg"
+            }, body=data)
+            self.checkResponse(TC.CREATED, r)
+            external_location = self.get_location(r)
+        self.log("Create external content to http resource")
+        external_headers = {
+            "Link": "<{}>; rel =\"http://fedora.info/definitions/fcrepo#ExternalContent\"; "
+                    "handling=\"proxy\"; type=\"image/jpeg\"".format(external_location)
+        }
+        r = self.do_post(headers=external_headers)
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+        r = self.do_get(location)
+        self.checkResponse(TC.OK, r)
+        self.log("Delete the local file")

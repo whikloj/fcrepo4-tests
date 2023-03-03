@@ -92,6 +92,7 @@ CONFLICT = 409
 GONE = 410
 BAD_REQUEST = 400
 METHOD_NOT_ALLOWED = 405
+SERVER_ERROR = 500
 
 # Some standard properties
 DC_NAMESPACE = "http://purl.org/dc/elements/1.1/"

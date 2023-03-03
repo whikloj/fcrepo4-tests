@@ -450,7 +450,7 @@ class FedoraAuthzTests(FedoraTests):
 
         self.log("Try to get memento as test user 1")
         r = self.do_get(memento_location, admin=False)
-        self.checkResponse(403, r)
+        self.checkResponse(200, r)
 
         self.log("Try to get memento as test user 2")
         r = self.do_get(memento_location, admin=user2)

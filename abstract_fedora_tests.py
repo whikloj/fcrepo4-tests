@@ -8,6 +8,7 @@ import functools
 import inspect
 import pyjq
 import json
+import os
 from datetime import datetime, timezone
 from email.utils import format_datetime
 
@@ -21,8 +22,13 @@ class FedoraTests(unittest.TestCase):
     # Holds the configuration
     config = {}
 
+    # Holds ultimate success or failure for tests.
+    results = {}
+
     def __init__(self, config):
         super().__init__()
+        if 'debug_level' not in config:
+            config['debug_level'] = 1
         self.config = config
 
     def getBaseUri(self):
@@ -34,10 +40,15 @@ class FedoraTests(unittest.TestCase):
         return self.config[TestConstants.BASE_URL_PARAM]
 
     @staticmethod
+    def getImagePath():
+        return os.path.join(os.getcwd(), 'resources', 'basic_image.jpg');
+
+    @staticmethod
     def getCurrentClass():
         return inspect.stack()[1][0].f_locals['self'].__class__.__name__
 
     def run_tests(self):
+        self.results = {}  # Reset results variable
         current = FedoraTests.getCurrentClass()
         self.check_for_retest(self.getBaseUri())
         self.log("\nStarting class {0}\n".format(current))
@@ -46,8 +57,13 @@ class FedoraTests(unittest.TestCase):
         for test in self._testdict:
             method = getattr(self, test)
             self.log("Running {0}".format(test))
-            method()
-            self.log("Passed\n")
+            try:
+                method()
+                self.results[test] = {'result': True}
+                self.log("Passed\n")
+            except AssertionError as e:
+                self.results[test] = {'result': False, 'message': str(e)}
+                self.log("Failed\n")
         self.cleanup(self.getBaseUri())
         self.log("\nExiting class {0}".format(current))
 
@@ -233,6 +249,12 @@ class FedoraTests(unittest.TestCase):
                      "in the configuration.")
             quit()
 
+    def getHeader(self, uri, header_name):
+        r = self.do_head(uri)
+        self.assertTrue(TestConstants.OK, r)
+        if header_name in r.headers:
+            return r.headers[header_name]
+
     @staticmethod
     def get_link_headers(response):
         """ Get the response's LINK headers, returned as a dict of key -> list()
@@ -337,10 +359,9 @@ class FedoraTests(unittest.TestCase):
         """ Check for link headers with the constrainedby rel type """
         self.assertLinkHeaderExists(response, "http://www.w3.org/ns/ldp#constrainedBy")
 
-
-    @staticmethod
-    def log(message):
-        print(message)
+    def log(self, message):
+        if 'debug_level' in self.config and self.config['debug_level'] > 0:
+            print(message)
 
     def find_binary_description(self, response):
         headers = FedoraTests.get_link_headers(response)
@@ -351,8 +372,8 @@ class FedoraTests(unittest.TestCase):
         self.checkValue(expected, response.status_code)
 
     def checkValue(self, expected, received):
-        self.assertEqual(expected, received, "Expected {} but received {}".format(expected, received))
-        FedoraTests.log("   Passed {0} == {0}".format(received))
+        self.assertEqual(expected, received, f"Expected {expected} but received {received}")
+        self.log("   Passed {0} == {0}".format(received))
 
     def createBasicContainer(self, parent_location):
         """ Make a simple basic container with some RDF content. """

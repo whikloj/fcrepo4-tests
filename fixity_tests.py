@@ -30,7 +30,7 @@ class FedoraFixityTests(FedoraTests):
         headers = {
             'Content-type': 'image/jpeg',
         }
-        with open(os.path.join(os.getcwd(), 'resources', 'basic_image.jpg'), 'rb') as fp:
+        with open(self.getImagePath(), 'rb') as fp:
             data = fp.read()
             r = self.do_post(self.getBaseUri(), headers=headers, body=data)
             self.assertEqual(201, r.status_code, 'Did not create binary')
