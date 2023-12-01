@@ -33,7 +33,7 @@ class FedoraAuthzTests(FedoraTests):
 
         temp_auth = FedoraTests.create_auth(random_string, random_string)
         r = self.do_get(self.getFedoraBase(), admin=temp_auth)
-        if 401 != r.status_code:
+        if TC.NOT_AUTHORIZED != r.status_code:
             self.log("It appears that authentication is not enabled on your repository.")
             quit()
 
@@ -50,8 +50,11 @@ class FedoraAuthzTests(FedoraTests):
         self.verifyAuthEnabled()
 
         self.log("Create \"cover\" container")
-        r = self.do_put(self.getBaseUri() + "/cover")
-        self.checkResponse(201, r)
+        r = self.do_post(headers={
+            'Slug': 'cover',
+            'Content-type': 'text/turtle'
+        }, body="@prefix pcdm: <http://pcdm.org/models#> .\n <> a pcdm:Object .")
+        self.checkResponse(TC.CREATED, r)
         cover_location = self.get_location(r)
         cover_acl = FedoraAuthzTests.getAclUri(r)
 
@@ -67,7 +70,7 @@ class FedoraAuthzTests(FedoraTests):
 
         self.log("Verify no current ACL")
         r = self.do_get(cover_acl)
-        self.checkResponse(404, r)
+        self.checkResponse(TC.NOT_FOUND, r)
 
         self.log("Add ACL to \"cover\"")
         headers = {
@@ -75,51 +78,51 @@ class FedoraAuthzTests(FedoraTests):
         }
         body = self.COVER_ACL.format(cover_location, self.config[TC.USER_NAME_PARAM])
         r = self.do_put(cover_acl, headers=headers, body=body)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
         self.log("Create \"files\" inside \"cover\"")
         r = self.do_put(cover_location + "/files")
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
         files_location = self.get_location(r)
         files_acl = FedoraAuthzTests.getAclUri(r)
 
         self.log("Anonymous can't access \"cover\"")
         r = self.do_get(cover_location, admin=None)
-        self.checkResponse(401, r)
+        self.checkResponse(TC.NOT_AUTHORIZED, r)
 
         self.log("Anonymous can't access \"cover/files\"")
         r = self.do_get(files_location, admin=None)
-        self.checkResponse(401, r)
+        self.checkResponse(TC.NOT_AUTHORIZED, r)
 
         self.log("{0} can access \"cover\"".format(self.config[TC.ADMIN_USER_PARAM]))
         r = self.do_get(cover_location)
-        self.checkResponse(200, r)
+        self.checkResponse(TC.OK, r)
 
         self.log("{0} can access \"cover/files\"".format(self.config[TC.ADMIN_USER_PARAM]))
         r = self.do_get(files_location)
-        self.checkResponse(200, r)
+        self.checkResponse(TC.OK, r)
 
         self.log("{0} can access \"cover\"".format(self.config[TC.USER_NAME_PARAM]))
         r = self.do_get(cover_location, admin=False)
-        self.checkResponse(200, r)
+        self.checkResponse(TC.OK, r)
 
         self.log("{0} can access \"cover/files\"".format(self.config[TC.USER_NAME_PARAM]))
         r = self.do_get(files_location, admin=False)
-        self.checkResponse(200, r)
+        self.checkResponse(TC.OK, r)
 
         auth = self.create_auth(self.config[TC.USER2_NAME_PARAM],
                                 self.config[TC.USER2_PASS_PARAM])
         self.log("{0} can't access \"cover\"".format(self.config[TC.USER2_NAME_PARAM]))
         r = self.do_get(cover_location, admin=auth)
-        self.checkResponse(403, r)
+        self.checkResponse(TC.FORBIDDEN, r)
 
         self.log("{0} can't access \"cover/files\"".format(self.config[TC.USER2_NAME_PARAM]))
         r = self.do_get(files_location, admin=auth)
-        self.checkResponse(403, r)
+        self.checkResponse(TC.FORBIDDEN, r)
 
         self.log("Verify \"cover/files\" has no ACL")
         r = self.do_get(files_acl)
-        self.checkResponse(404, r)
+        self.checkResponse(TC.NOT_FOUND, r)
 
         self.log("PUT Acl to \"cover/files\" to allow access for {0}".format(self.config[TC.USER2_NAME_PARAM]))
         headers = {
@@ -127,15 +130,15 @@ class FedoraAuthzTests(FedoraTests):
         }
         body = self.FILES_ACL.format(files_location, self.config[TC.USER2_NAME_PARAM])
         r = self.do_put(files_acl, headers=headers, body=body)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
         self.log("{0} can't access \"cover\"".format(self.config[TC.USER2_NAME_PARAM]))
         r = self.do_get(cover_location, admin=auth)
-        self.checkResponse(403, r)
+        self.checkResponse(TC.FORBIDDEN, r)
 
         self.log("{0} can access \"cover/files\"".format(self.config[TC.USER2_NAME_PARAM]))
         r = self.do_get(files_location, admin=auth)
-        self.checkResponse(200, r)
+        self.checkResponse(TC.OK, r)
 
     @Test
     def doDirectIndirectAuthTests(self):
@@ -143,13 +146,13 @@ class FedoraAuthzTests(FedoraTests):
 
         self.log("Create a target container")
         r = self.do_post()
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
         target_location = self.get_location(r)
         target_acl = FedoraAuthzTests.getAclUri(r)
 
         self.log("Create a write container")
         r = self.do_post()
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
         write_location = self.get_location(r)
         write_acl = FedoraAuthzTests.getAclUri(r)
 
@@ -164,7 +167,7 @@ class FedoraAuthzTests(FedoraTests):
             'Content-type': 'text/turtle'
         }
         r = self.do_put(target_acl, headers=headers, body=target_ttl)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
         self.log("Make sure the write resource is writable by \"{0}\"".format(self.config[TC.USER_NAME_PARAM]))
         write_ttl = "@prefix acl: <{2}> .\n" \
@@ -175,23 +178,23 @@ class FedoraAuthzTests(FedoraTests):
                     "   acl:default <{1}> .\n".format(self.config[TC.USER_NAME_PARAM], write_location,
                                                       TC.ACL_NS)
         r = self.do_put(write_acl, headers=headers, body=write_ttl)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
         self.log("Verify that \"{0}\" can create a simple resource under write resource (POST)".format(
             self.config[TC.USER_NAME_PARAM]))
         r = self.do_post(write_location, admin=False)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
         uuid_value = str(uuid.uuid4())
         self.log("Verify that \"{0}\" can create a simple resource under write resource (PUT)".format(
             self.config[TC.USER_NAME_PARAM]))
         r = self.do_put(write_location + "/" + uuid_value, admin=False)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
         self.log("Verify that \"{0}\" CANNOT create a resource under target resource".format(
             self.config[TC.USER_NAME_PARAM]))
         r = self.do_post(target_location, admin=False)
-        self.checkResponse(403, r)
+        self.checkResponse(TC.FORBIDDEN, r)
 
         self.log(
             "Verify that \"{0}\" CANNOT create direct or indirect containers that reference target resources".format(
@@ -205,7 +208,7 @@ class FedoraAuthzTests(FedoraTests):
                      "<>  ldp:membershipResource <{1}> ;\n" \
                      "ldp:hasMemberRelation test:predicateToCreate .\n".format(TC.LDP_NS, target_location)
         r = self.do_post(write_location, headers=headers, body=direct_ttl, admin=False)
-        self.checkResponse(403, r)
+        self.checkResponse(TC.FORBIDDEN, r)
 
         headers = {
             'Content-type': 'text/turtle',
@@ -217,33 +220,33 @@ class FedoraAuthzTests(FedoraTests):
                        "ldp:membershipResource <{1}> ;\n" \
                        "ldp:hasMemberRelation test:predicateToCreate .\n".format(TC.LDP_NS, target_location)
         r = self.do_post(write_location, headers=headers, body=indirect_ttl, admin=False)
-        self.checkResponse(403, r)
+        self.checkResponse(TC.FORBIDDEN, r)
 
         self.log("Go ahead and create the indirect and direct containers as admin")
         r = self.do_post(write_location, headers=headers, body=direct_ttl)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
         direct_location = self.get_location(r)
         r = self.do_post(write_location, headers=headers, body=indirect_ttl)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
         indirect_location = self.get_location(r)
 
         self.log("Attempt to verify that \"{0}\" can not actually create relationships on the readonly resource via " \
                  "direct or indirect container".format(self.config[TC.USER_NAME_PARAM]))
         r = self.do_post(direct_location, admin=False)
-        self.assertEqual(403, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.FORBIDDEN, r)
         r = self.do_post(indirect_location, admin=False)
-        self.assertEqual(403, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.FORBIDDEN, r)
 
         self.log("Verify that \"{0}\" can still create a simple resource under write resource (POST)".format(
             self.config[TC.USER_NAME_PARAM]))
         r = self.do_post(write_location, admin=False)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
         uuid_value = str(uuid.uuid4())
         self.log("Verify that \"{0}\" can still create a simple resource under write resource (PUT)".format(
             self.config[TC.USER_NAME_PARAM]))
         r = self.do_put(write_location + "/" + uuid_value, admin=False)
-        self.checkResponse(201, r)
+        self.checkResponse(TC.CREATED, r)
 
     @Test
     def multipleAuthzCreatePermissiveSet(self):

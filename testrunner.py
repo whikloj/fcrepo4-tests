@@ -20,6 +20,7 @@ from authz_tests import FedoraAuthzTests
 from indirect_tests import FedoraIndirectTests
 from camel_tests import FedoraCamelTests
 from ssearch_tests import FedoraSimpleSearchTests
+from archival_group_tests import FedoraArchivalGroupTests
 
 
 class FedoraTestRunner:
@@ -38,6 +39,7 @@ class FedoraTestRunner:
         (TestConstants.SOLR_URL_PARAM, False),
         (TestConstants.TRIPLESTORE_URL_PARAM, False),
         ('debug_level', False),
+        ('failed_only', False),
     ]
     config = {}
     logger = None
@@ -52,6 +54,7 @@ class FedoraTestRunner:
         'authz': FedoraAuthzTests,
         'indirect': FedoraIndirectTests,
         'search': FedoraSimpleSearchTests,
+        'archivalgroup': FedoraArchivalGroupTests,
     }
 
     def set_up(self, setup_args):
@@ -64,6 +67,9 @@ class FedoraTestRunner:
                 with open(file, 'r') as fp:
                     yml = load(fp.read(), Loader=SafeLoader)
                     self.config = yml.get(site)
+
+    def get_tests(self) -> list:
+        return list(self.tests.keys())
 
     def parse_cmdline_args(self, command_args):
         filename = eval('args.' + TestConstants.CONFIG_FILE_PARAM)
@@ -109,16 +115,17 @@ class FedoraTestRunner:
                 results[instance.__class__.__name__] = instance.results
         return results
 
-    @staticmethod
-    def report(test_results: dict):
+    def report(self, test_results: dict):
         """ Print out the test results collected from the various tests. """
         if len(test_results) > 0:
             print("\n{:-^50}".format("Test Results"))
             for k, results in test_results.items():
                 print(f"\nTest Class: {k}")
                 for method, result in results.items():
-                    print(f"  Method: {method}, Result: ", end="")
-                    print("Pass") if result['result'] else print(f"Failed, {result['message']}")
+                    if result['result'] and not self.config['failed_only']:
+                        print(f"  Method: {method}, Result: Pass")
+                    elif not result['result']:
+                        print(f"  Method: {method}, Result: Failed, {result['message']}")
 
     def main(self, application_args):
         self.set_up(application_args)
@@ -137,8 +144,14 @@ def csv_list(string):
 
 
 class CSVAction(argparse.Action):
-    valid_options = ["authz", "basic", "sparql", "rdf", "version", "transaction", "fixity", "indirect", "camel",
-                     "search"]
+    """ Holds the valid keys for the csv list """
+    valid_options = []
+
+    def __init__(self, option_strings, dest, **kwargs):
+        if 'csv_options' in kwargs:
+            self.valid_options = kwargs['csv_options']
+            del kwargs['csv_options']
+        super(CSVAction, self).__init__(option_strings, dest, **kwargs)
 
     def __call__(self, parser, args, values, option_string=None):
         if isinstance(values, list):
@@ -158,6 +171,7 @@ class CSVAction(argparse.Action):
 
 
 if __name__ == '__main__':
+    tests = FedoraTestRunner()
 
     parser = argparse.ArgumentParser(description="Fedora Tester runs a series of tests against an instance of the "
                                                  "community implementation of the Fedora API specification.")
@@ -180,11 +194,13 @@ if __name__ == '__main__':
     parser.add_argument('-k', '--' + TestConstants.USER2_PASS_PARAM, dest=TestConstants.USER2_PASS_PARAM,
                         help="Second regular user password")
     parser.add_argument('-t', '--tests', dest="selected_tests", help='Comma separated list of which tests to run from '
-                        '{0}. Defaults to running all tests'.format(", ".join(CSVAction.valid_options)),
-                        default=['all'], type=csv_list, action=CSVAction)
+                        '{0}. Defaults to running all tests'.format(", ".join(tests.get_tests())),
+                        default=['all'], type=csv_list, action=CSVAction, csv_options=tests.get_tests())
     parser.add_argument('-v', dest='debug_level', action='store_const', const=1, default=0,
-                        help='Set verbosity to level 1')
+                        help='Show all test steps')
+    parser.add_argument('--failed-only', dest='failed_only', action='store_true', default=False,
+                        help='Only show failed tests')
 
     args = parser.parse_args()
-    tests = FedoraTestRunner()
+
     tests.main(args)

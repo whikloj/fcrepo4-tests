@@ -61,41 +61,41 @@ class FedoraBasicIxnTests(FedoraTests):
         self.log("Create container")
         r = self.do_post(self.getBaseUri())
         container_location = self.get_location(r)
-        self.assertEqual(201, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.CREATED, r)
 
         self.log("Check container exists")
         r = self.do_head(container_location)
-        self.assertEqual(200, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.OK, r)
         r = self.do_get(container_location)
-        self.assertEqual(200, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.OK, r)
 
         self.log("Delete the container")
         r = self.do_delete(container_location)
-        self.assertEqual(204, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.NO_CONTENT, r)
 
         self.log("Check container doesn't exists")
         r = self.do_head(container_location)
-        self.assertEqual(410, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.GONE, r)
         r = self.do_get(container_location)
-        self.assertEqual(410, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.GONE, r)
 
         self.log("Try to put to location held by tombstone")
         r = self.do_put(container_location)
-        self.assertEqual(410, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.GONE, r)
 
         self.log("Delete the tombstone")
         r = self.do_delete(container_location + "/" + TC.FCR_TOMBSTONE)
-        self.assertEqual(204, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.NO_CONTENT, r)
 
         self.log("Check container doesn't exists")
         r = self.do_head(container_location)
-        self.assertEqual(404, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.NOT_FOUND, r)
         r = self.do_get(container_location)
-        self.assertEqual(404, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.NOT_FOUND, r)
 
         self.log("Try to put to location again")
         r = self.do_put(container_location)
-        self.assertEqual(201, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.CREATED, r)
 
     @Test
     def testBasicContainer(self):
@@ -122,7 +122,7 @@ class FedoraBasicIxnTests(FedoraTests):
             'Link': link_type
         }
         r = self.do_post(self.getBaseUri(), headers=headers)
-        self.assertEqual(400, r.status_code, "Did not get expected response")
+        self.checkResponse(TC.BAD_REQUEST, r)
 
     @Test
     def testLdpContainer(self):
@@ -132,18 +132,18 @@ class FedoraBasicIxnTests(FedoraTests):
             'Link': link_type
         }
         r = self.do_post(self.getBaseUri(), headers=headers)
-        self.assertEqual(400, r.status_code, "Did create container")
+        self.checkResponse(TC.BAD_REQUEST, r)
 
     @Test
     def doNestedTests(self):
         self.log("Create a container")
         r = self.createBasicContainer(self.getBaseUri())
-        self.assertEqual(201, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.CREATED, r)
         location = self.get_location(r)
 
         self.log("Create a container in a container")
         r = self.createBasicContainer(location)
-        self.assertEqual(201, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.CREATED, r)
         main_child1 = self.get_location(r)
 
         self.log("Create binary inside a container inside a container")
@@ -153,12 +153,12 @@ class FedoraBasicIxnTests(FedoraTests):
             }
             data = fp.read()
             r = self.do_post(main_child1, headers=headers, body=data)
-            self.assertEqual(201, r.status_code, "Did not get expected status code")
+            self.checkResponse(TC.CREATED, r)
             binary_location = self.get_location(r)
 
         self.log("Create a second child in the top container")
         r = self.createBasicContainer(location)
-        self.assertEqual(201, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.CREATED, r)
         main_child2 = self.get_location(r)
 
         self.log("Verify containment")
@@ -166,7 +166,7 @@ class FedoraBasicIxnTests(FedoraTests):
             'Accept': TC.JSONLD_MIMETYPE
         }
         r = self.do_get(location, headers=headers)
-        self.assertEqual(200, r.status_code, "Can't get the container")
+        self.checkResponse(TC.OK, r)
         body = r.content.decode('UTF-8').rstrip('\ny')
         json_body = json.loads(body)
         contained = pyjq.all('.[0]."http://www.w3.org/ns/ldp#contains"', json_body)
@@ -187,21 +187,21 @@ class FedoraBasicIxnTests(FedoraTests):
 
         self.log("Delete binary")
         r = self.do_delete(binary_location)
-        self.assertEqual(204, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.NO_CONTENT, r)
 
         self.log("Verify its gone")
         r = self.do_get(binary_location)
-        self.assertEqual(410, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.GONE, r)
 
         self.log("Delete container with a container inside it")
         r = self.do_delete(location)
-        self.assertEqual(204, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.NO_CONTENT, r)
 
         self.log("Verify both are gone")
         r = self.do_get(main_child1)
-        self.assertEqual(410, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.GONE, r)
         r = self.do_get(location)
-        self.assertEqual(410, r.status_code, "Did not get expected status code")
+        self.checkResponse(TC.GONE, r)
 
     @Test
     def testPurgeContainer(self):
@@ -306,7 +306,7 @@ class FedoraBasicIxnTests(FedoraTests):
             }
 
             r = self.do_put(location, headers=headers, files=files)
-            self.assertEqual(result, r.status_code, "Did not get expected response")
+            self.checkResponse(result, r)
 
     @Test
     def testChangeIxnModel(self):
@@ -424,3 +424,114 @@ class FedoraBasicIxnTests(FedoraTests):
         r = self.do_get(location)
         self.checkResponse(TC.OK, r)
         self.log("Delete the local file")
+
+    @Test
+    def testDeleteAndPutOverTombstoneRdf(self):
+        self.log("Create resource")
+        r = self.do_post()
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+
+        self.log("Delete resource")
+        r = self.do_delete(location)
+        self.checkResponse(TC.NO_CONTENT, r)
+        r = self.do_get(location)
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT over tombstone")
+        r = self.do_put(location)
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT over tombstone, with header")
+        r = self.do_put(location, headers={
+            TC.OVERWRITE_TOMBSTONE_HEADER: "true"
+        })
+        self.checkResponse(TC.CREATED, r)
+
+    @Test
+    def testDeleteAndPutOverTombstoneNonRdf(self):
+        self.log("Create NonRdf resource")
+        r = self.do_post(headers={
+            'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
+            'Content-type': 'text/plain'
+        }, body="Hello World!")
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+
+        self.log("Delete resource")
+        r = self.do_delete(location)
+        self.checkResponse(TC.NO_CONTENT, r)
+        r = self.do_get(location)
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT over tombstone")
+        r = self.do_put(location, headers={
+            'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
+            'Content-type': 'text/plain'
+        }, body="New body")
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT over tombstone, with header")
+        r = self.do_put(location, headers={
+            'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
+            'Content-type': 'text/plain',
+            TC.OVERWRITE_TOMBSTONE_HEADER: "true"
+        }, body="New body")
+        self.checkResponse(TC.CREATED, r)
+
+    @Test
+    def testDeleteAndPutOverTombstoneWrongTypeRdf(self):
+        self.log("Create resource RDF")
+        r = self.do_post()
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+
+        self.log("Delete resource")
+        r = self.do_delete(location)
+        self.checkResponse(TC.NO_CONTENT, r)
+        r = self.do_get(location)
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT NonRdfSource over tombstone")
+        r = self.do_put(location, headers={
+            'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
+            'Content-type': 'text/plain'
+        }, body="Hello World!")
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT over NonRdfSource tombstone, with header")
+        r = self.do_put(location, headers={
+            'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
+            'Content-type': 'text/plain',
+            TC.OVERWRITE_TOMBSTONE_HEADER: "true"
+        })
+        self.checkResponse(TC.CONFLICT, r)
+
+    @Test
+    def testDeleteAndPutOverTombstoneWrongTypeNonRdf(self):
+        self.log("Create resource NonRDF")
+        r = self.do_post(headers={
+            'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
+            'Content-type': 'text/plain'
+        }, body="Hello World!")
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+
+        self.log("Delete resource")
+        r = self.do_delete(location)
+        self.checkResponse(TC.NO_CONTENT, r)
+        r = self.do_get(location)
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT RdfSource over tombstone")
+        r = self.do_put(location, headers={
+            'Link': self.make_type(TC.LDP_BASIC),
+        })
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT over RdfSource tombstone, with header")
+        r = self.do_put(location, headers={
+            'Link': self.make_type(TC.LDP_BASIC),
+            TC.OVERWRITE_TOMBSTONE_HEADER: "true"
+        })
+        self.checkResponse(TC.CONFLICT, r)

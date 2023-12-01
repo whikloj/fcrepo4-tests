@@ -196,9 +196,9 @@ class FedoraTests(unittest.TestCase):
         self.fail(self._formatMessage(msg, standard_msg))
 
     @staticmethod
-    def make_type(type):
+    def make_type(link_type: str) -> str:
         """ Turn a URI to Link type format """
-        return "<{0}>; rel=\"type\"".format(type)
+        return "<{0}>; rel=\"type\"".format(link_type)
 
     def tear_down(self):
         """ Delete any resources created """
@@ -206,7 +206,7 @@ class FedoraTests(unittest.TestCase):
             self.cleanup(node)
         self.nodes.clear()
 
-    def cleanup(self, uri):
+    def cleanup(self, uri: str) -> bool:
         """ Remove the CONTAINER """
         self.log("Deleting {0}".format(uri))
         r = self.do_delete(uri)
@@ -223,7 +223,7 @@ class FedoraTests(unittest.TestCase):
                 return True
         return False
 
-    def check_for_retest(self, uri):
+    def check_for_retest(self, uri: str):
         """Try to create CONTAINER """
         try:
             response = self.do_put(uri)
@@ -249,14 +249,14 @@ class FedoraTests(unittest.TestCase):
                      "in the configuration.")
             quit()
 
-    def getHeader(self, uri, header_name):
+    def getHeader(self, uri: str, header_name: str):
         r = self.do_head(uri)
         self.assertTrue(TestConstants.OK, r)
         if header_name in r.headers:
             return r.headers[header_name]
 
     @staticmethod
-    def get_link_headers(response):
+    def get_link_headers(response: requests.Response) -> dict:
         """ Get the response's LINK headers, returned as a dict of key -> list()
             where the key is the rel=property and the list contains all uris """
         headers = {}
@@ -368,8 +368,13 @@ class FedoraTests(unittest.TestCase):
         self.assertIsNotNone(headers['describedby'])
         return headers['describedby'][0]
 
-    def checkResponse(self, expected, response):
-        self.checkValue(expected, response.status_code)
+    def checkResponse(self, expected, response: requests.Response):
+        try:
+            str_expected = [str(x) for x in expected]
+            all_expect = " or ".join(str_expected)
+            self.assertIn(response.status_code, expected, f"Expected ({all_expect}) got {response.status_code}")
+        except TypeError:
+            self.checkValue(expected, response.status_code)
 
     def checkValue(self, expected, received):
         self.assertEqual(expected, received, f"Expected {expected} but received {received}")
