@@ -82,6 +82,7 @@ If a configuration cannot be found or the `-n|--site_name` argument is not prese
 ### Isolate tests
 You can also choose to run only a subset of all tests using the `-t|--tests` argument. It accepts a comma separated list
 of the following values which indicate which tests to run.
+* `archivalgroup` - Archival Group tests
 * `authz` - Authorization tests
 * `basic` - Basic interaction tests
 * `camel` - Camel toolbox tests (see [note](#camel-tests))
@@ -108,6 +109,14 @@ They also require the configuration to have a `solrurl` parameter pointing to a 
 Both of these systems must be fed by the fcrepo-camel-toolbox for this testing.
 
 ## Tests implemented
+
+### archivalgroup
+1. Create an archivalgroup container
+1. Create an archivalgroup member, delete it and it's tombstone
+1. Create an archivalgroup member, delete it and PUT over the tombstone
+1. Try to PUT over an archivalgroup member tombstone with a different interaction model
+1. Create and delete an archivalgroup, delete it's tombstone.
+1. Create and delete an archivalgroup, and PUT over the tombstone
 
 ### authz
 1. Create a container called **cover**
