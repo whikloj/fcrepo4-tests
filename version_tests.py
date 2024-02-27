@@ -1,4 +1,7 @@
 #!/bin/env python
+import json
+
+import pyjq
 
 import TestConstants
 from abstract_fedora_tests import FedoraTests, register_tests, Test
@@ -29,16 +32,27 @@ class FedoraVersionTests(FedoraTests):
     def count_mementos(response):
         return len(FedoraVersionTests.get_all_mementos(response))
 
-    def checkMementoCount(self, expected, uri, admin=None):
+    def checkMementoCount(self, expected, uri, admin=None, use_link_format=True):
         if admin is None:
             admin = True
         uri = get_version_endpoint(uri)
+        if use_link_format:
+            rdf_type = TestConstants.LINK_FORMAT_MIMETYPE
+        else:
+            rdf_type = TestConstants.JSONLD_MIMETYPE
         headers = {
-            'Accept': TestConstants.LINK_FORMAT_MIMETYPE
+            'Accept': rdf_type
         }
         r = self.do_get(uri, headers=headers, admin=admin)
         self.checkResponse(200, r)
-        self.checkValue(expected, self.count_mementos(r))
+        if rdf_type == TestConstants.LINK_FORMAT_MIMETYPE:
+            self.checkValue(expected, self.count_mementos(r))
+        else:
+            body = r.content.decode('UTF-8')
+            json_body = json.loads(body)
+            found_title = pyjq.all('.[] | ."@type" | .[]', json_body)
+            matching = [x for x in found_title if x == expected]
+            self.checkValue(expected, len(matching))
 
     def getNthMemento(self, uri, memento_number=1, admin=None):
         if admin is None:
@@ -133,6 +147,35 @@ class FedoraVersionTests(FedoraTests):
         self.log("Check memento still exists.")
         r = self.do_get(memento_location)
         self.checkResponse(TestConstants.OK, r)
+
+    @Test
+    def makeVersionsInsideASecond(self):
+        headers = {
+            'Link': self.make_type(TestConstants.LDP_BASIC)
+        }
+        r = self.do_post(self.getBaseUri(), headers=headers)
+        self.log("Create a basic container")
+        self.checkResponse(TestConstants.CREATED, r)
+        location = self.get_location(r)
+        self.log("at " + location)
+
+        version_endpoint = location + "/" + TestConstants.FCR_VERSIONS
+        r = self.do_get(version_endpoint)
+        self.checkResponse(TestConstants.OK, r)
+
+        self.log("Create a version")
+        r = self.do_post(version_endpoint)
+        self.checkResponse(TestConstants.CREATED, r)
+        memento_location = self.get_location(r)
+
+        self.log("Create another version")
+        r = self.do_post(version_endpoint)
+        self.checkResponse(TestConstants.CREATED, r)
+
+        self.log("Count mementos")
+        # Only one memento as they are both in the same second.
+
+        self.checkMementoCount(1, version_endpoint)
 
     @Test
     def doBinaryVersioningTest(self):
@@ -352,7 +395,7 @@ class FedoraVersionTests(FedoraTests):
         self.checkMementoCount(1, description_version_endpoint)
 
     @Test
-    def testMementoAreInaccessibleAfterDelete(self):
+    def testMementoAreAccessibleAfterDelete(self):
         r = self.do_post()
         self.checkResponse(TestConstants.CREATED, r)
         uri = self.get_location(r)
@@ -362,6 +405,8 @@ class FedoraVersionTests(FedoraTests):
         r = self.do_post(uri + "/" + TestConstants.FCR_VERSIONS)
         self.checkResponse(TestConstants.CREATED, r)
         memento = self.get_location(r)
+        self.log("Wait a second or the memento and the delete will occur in the same second")
+        time.sleep(1)
 
         self.verifyGet(memento)
 
@@ -369,8 +414,9 @@ class FedoraVersionTests(FedoraTests):
         self.checkResponse(TestConstants.NO_CONTENT, r)
 
         self.verifyGone(uri)
-        self.verifyGone(uri + "/" + TestConstants.FCR_VERSIONS)
-        self.verifyGone(memento)
+        # TimeMaps and Mementos are accessible after the resource is deleted (but not purged) as of 6.5.0
+        self.verifyGet(uri + "/" + TestConstants.FCR_VERSIONS)
+        self.verifyGet(memento)
 
     @Test
     def testBinaryDescription(self):

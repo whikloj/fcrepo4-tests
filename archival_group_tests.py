@@ -170,21 +170,40 @@ class FedoraArchivalGroupTests(FedoraTests):
         r = self.do_put(container_location)
         self.checkResponse(TC.GONE, r)
 
+        self.log("Try to PUT a new ArchivalGroupt over archivalgroup, with header")
+        r = self.do_put(container_location, headers={
+            "Link": self.make_type(TC.ARCHIVAL_GROUP),
+            TC.OVERWRITE_TOMBSTONE_HEADER: "true"
+        })
+        self.checkResponse(TC.CREATED, r)
+
+    @Test
+    def testCreateAndPutOverArchivalGroupWithDifferentType(self):
+        self.log("Create Archival Group container")
+        r = self.do_post(self.getBaseUri(), headers={
+            "Link": self.make_type(TC.ARCHIVAL_GROUP)
+        })
+        container_location = self.get_location(r)
+        self.checkResponse(TC.CREATED, r)
+        self.log("Create archivalgroup member")
+        r = self.do_post(container_location)
+        self.checkResponse(TC.CREATED, r)
+        member_location = self.get_location(r)
+        r = self.do_get(member_location)
+        self.checkResponse(TC.OK, r)
+
+        self.log("Try to delete archivalgroup")
+        r = self.do_delete(container_location)
+        self.checkResponse(TC.NO_CONTENT, r)
+        r = self.do_get(container_location)
+        self.checkResponse(TC.GONE, r)
+
+        self.log("Try to PUT over archivalgroup, without header")
+        r = self.do_put(container_location)
+        self.checkResponse(TC.GONE, r)
+
         self.log("Try to PUT a normal RDFResource over archivalgroup, with header")
         r = self.do_put(container_location, headers={
             TC.OVERWRITE_TOMBSTONE_HEADER: "true"
         })
-        # TODO: This should not be a SERVER ERROR, but it could be a CONFLICT
-        self.checkResponse(TC.SERVER_ERROR, r)
-
-        # TODO: If the above succeeds then this should all be removed.
-        self.log("Try to PUT an archivalgroup over the archivalgroup, with header")
-        r = self.do_put(container_location, headers={
-            TC.OVERWRITE_TOMBSTONE_HEADER: "true",
-            "Link": self.make_type(TC.ARCHIVAL_GROUP)
-        })
-        self.checkResponse(TC.CREATED, r)
-        r = self.do_get(container_location)
-        self.checkResponse(TC.OK, r)
-        headers = self.get_link_headers(r)
-        self.assertNotIn(TC.ARCHIVAL_GROUP, headers['type'])
+        self.checkResponse(TC.CONFLICT, r)

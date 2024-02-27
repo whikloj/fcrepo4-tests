@@ -1,4 +1,5 @@
 #!/bin/env python
+import datetime
 import shutil
 import tempfile
 import time
@@ -39,11 +40,11 @@ class FedoraBasicIxnTests(FedoraTests):
 
     def getEtag(self, uri):
         """ Get the eTag header for a specified URI. """
-        return self.getHeader(uri, "ETag")
+        return self.getHeader(uri, "ETag").strip()
 
     def getStateToken(self, uri):
         """ Get the X-State-Token header for a specified URI. """
-        return self.getHeader(uri, "X-State-Token")
+        return self.getHeader(uri, "X-State-Token").strip()
 
     def duplicateImage(self):
         new_file = os.path.join(tempfile.gettempdir(), 'temp_image.jpeg')
@@ -344,14 +345,19 @@ class FedoraBasicIxnTests(FedoraTests):
         parent_uri = self.get_location(r)
 
         first_etag = self.getEtag(parent_uri)
-        self.log(f"First etag of parent is {first_etag}")
-
+        first_state_token = self.getStateToken(parent_uri)
+        self.log(f"First eTag of parent is {first_etag} and state token is {first_state_token}")
+        time.sleep(0.5)
         self.log("Add child resource to parent")
         r = self.do_post(parent_uri)
         self.checkResponse(TC.CREATED, r)
 
         second_etag = self.getEtag(parent_uri)
-        self.log(f"Second etag of parent is {second_etag}")
+        second_state_token = self.getStateToken(parent_uri)
+        self.log(f"Second eTag of parent is {second_etag} and state token is {second_state_token}")
+
+        self.assertNotEqual(first_etag, second_etag, "First and second state etags should not match")
+        self.assertEqual(first_state_token, second_state_token, "First and second state tokens should match")
         
         self.log("Add 30 child resources to parent")
         for i in range(1, 30):
@@ -359,11 +365,30 @@ class FedoraBasicIxnTests(FedoraTests):
             self.checkResponse(TC.CREATED, r)
 
         third_etag = self.getEtag(parent_uri)
-        self.log(f"Third etag of parent is {third_etag}")
-
-        self.assertNotEqual(first_etag, second_etag, "First and second state etags should not match")
+        third_state_token = self.getStateToken(parent_uri)
+        if third_etag == second_etag:
+            start = time.perf_counter()
+            self.log("Waiting up to 2 seconds to account for H2 delay on eTags")
+            while second_etag == third_etag and time.perf_counter() - start < 2:
+                time.sleep(.3)
+                third_etag = self.getEtag(parent_uri)
+                third_state_token = self.getStateToken(parent_uri)
+        self.log(f"Third eTag of parent is {third_etag} and state token is {third_state_token}")
         self.assertNotEqual(first_etag, third_etag, "First and third state etag should not match")
         self.assertNotEqual(second_etag, third_etag, "Second and third state etag should not match")
+
+        self.assertEqual(first_state_token, third_state_token, "First and third state tokens should match")
+        self.assertEqual(second_state_token, third_state_token, "Second and third state tokens should match")
+
+        r = self.do_patch(parent_uri, headers={'Content-type': TC.SPARQL_UPDATE_MIMETYPE},
+                          body="INSERT {<> <" + TC.DC_TITLE + "> 'Some title'. } WHERE {}")
+        self.checkResponse(TC.NO_CONTENT, r)
+
+        fourth_etag = self.getEtag(parent_uri)
+        fourth_state_token = self.getStateToken(parent_uri)
+        self.log(f"Fourth eTag of parent is {fourth_etag} and state token is {fourth_state_token}")
+        self.assertNotEqual(third_etag, fourth_etag, "Third and fourth state etag should match")
+        self.assertNotEqual(third_state_token, fourth_state_token, "Third and fourth state tokens should not match")
 
     # @Test # These tests require Fedora to allow the paths, might require more thought.
     def testExternalContentProxyLocal(self):

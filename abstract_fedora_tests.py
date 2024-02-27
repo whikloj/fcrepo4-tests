@@ -249,8 +249,10 @@ class FedoraTests(unittest.TestCase):
                      "in the configuration.")
             quit()
 
-    def getHeader(self, uri: str, header_name: str):
-        r = self.do_head(uri)
+    def getHeader(self, uri: str, header_name: str, headers: dict = None):
+        if headers is None:
+            headers = {}
+        r = self.do_head(uri, headers=headers)
         self.assertTrue(TestConstants.OK, r)
         if header_name in r.headers:
             return r.headers[header_name]
