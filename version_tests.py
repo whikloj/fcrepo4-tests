@@ -1,4 +1,5 @@
 #!/bin/env python
+import collections
 import json
 
 import pyjq
@@ -8,6 +9,7 @@ from abstract_fedora_tests import FedoraTests, register_tests, Test
 import time
 import rdflib
 from rdflib.namespace import DC, RDF
+import concurrent.futures as futures
 
 
 def get_version_endpoint(uri):
@@ -162,20 +164,23 @@ class FedoraVersionTests(FedoraTests):
         version_endpoint = location + "/" + TestConstants.FCR_VERSIONS
         r = self.do_get(version_endpoint)
         self.checkResponse(TestConstants.OK, r)
+        self.checkMementoCount(1, version_endpoint)
 
-        self.log("Create a version")
-        r = self.do_post(version_endpoint)
-        self.checkResponse(TestConstants.CREATED, r)
-        memento_location = self.get_location(r)
+        time.sleep(1)
 
-        self.log("Create another version")
-        r = self.do_post(version_endpoint)
-        self.checkResponse(TestConstants.CREATED, r)
+        self.log("Create multiple versions inside a second")
+        with futures.ThreadPoolExecutor(max_workers=3) as ec:
+            results = ec.map(self.do_post, [version_endpoint, version_endpoint, version_endpoint])
+            status_codes = [r.status_code for r in results]
+            counter = collections.Counter(status_codes)
+            self.assertEqual(2, counter[TestConstants.CONFLICT])
+            self.assertEqual(1, counter[TestConstants.CREATED])
 
         self.log("Count mementos")
-        # Only one memento as they are both in the same second.
-
-        self.checkMementoCount(1, version_endpoint)
+        # Only one new memento as they are both in the same second.
+        self.checkMementoCount(2, version_endpoint)
+        # But multiple actual versions created
+        self.checkMementoCount(2, version_endpoint, use_link_format=True)
 
     @Test
     def doBinaryVersioningTest(self):

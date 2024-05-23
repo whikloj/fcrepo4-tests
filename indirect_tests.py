@@ -196,3 +196,36 @@ class FedoraIndirectTests(FedoraTests):
         self.assertEqual(403, r.status_code, "Did not get expected status code")
 
         self.log("Indirect is {0}\nread-only is {1}".format(indirect_location, read_only_location))
+
+    @Test
+    def testDirectWithServerManaged(self):
+        self.log("Try to create a direct container with server managed ldp:hasMemberRelation")
+        headers = {
+            'Link': self.make_type(TestConstants.LDP_INDIRECT),
+            'Content-type': 'text/turtle'
+        }
+        indirect_body = "@prefix ldp: <http://www.w3.org/ns/ldp#> .\n" \
+                        "@prefix dc: <http://purl.org/dc/elements/1.1/> .\n" \
+                        "<> ldp:hasMemberRelation ldp:contains ;\n" \
+                        "dc:title \"Members Container\" ."
+        r = self.do_post(self.getBaseUri(), headers=headers, body=indirect_body)
+        self.assertEqual(409, r.status_code, "Did not get expected status code")
+
+    @Test
+    def testIndirectWithServerManaged(self):
+        self.log("Try to create an indirect container with server managed ldp:hasMemberRelation")
+        r = self.do_post()
+        # Create a container
+        self.checkResponse(TestConstants.CREATED, r)
+        location = self.get_location(r)
+        headers = {
+            'Link': self.make_type(TestConstants.LDP_INDIRECT),
+            'Content-type': 'text/turtle'
+        }
+        indirect_body = "@prefix ldp: <http://www.w3.org/ns/ldp#> .\n" \
+                        "@prefix dc: <http://purl.org/dc/elements/1.1/> .\n" \
+                        "<> ldp:insertedContentRelation <{0}> ;\n" \
+                        "ldp:hasMemberRelation ldp:contains ;\n" \
+                        "dc:title \"Members Container\" .".format(location)
+        r = self.do_post(self.getBaseUri(), headers=headers, body=indirect_body)
+        self.assertEqual(409, r.status_code, "Did not get expected status code")
