@@ -41,6 +41,7 @@ class FedoraSimpleSearchTests(FedoraTests):
 
     @Test
     def testSearchAll(self):
+        """ Test that a search returns all resources created """
         max_results = 20
         offset = 0
         items = self.createSomeResources(count=5)
@@ -65,6 +66,7 @@ class FedoraSimpleSearchTests(FedoraTests):
 
     @Test
     def testWithBadParameter(self):
+        """ Test that a bad parameter returns a 400 status """
         search = self.getSearch()
         search.add_condition("myField", "=", "*")
         r = search.do_query()

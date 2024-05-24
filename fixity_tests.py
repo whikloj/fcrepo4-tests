@@ -1,10 +1,6 @@
 #!/bin/env python
 
-import TestConstants
 from abstract_fedora_tests import FedoraTests, register_tests, Test
-import os.path
-import pyjq
-import json
 
 
 @register_tests
@@ -25,7 +21,7 @@ class FedoraFixityTests(FedoraTests):
 
     @Test
     def aFixityTest(self):
-
+        """ Test doing a fixity test and that it matches the expected result. """
         self.log("Create a binary")
         headers = {
             'Content-type': 'image/jpeg',

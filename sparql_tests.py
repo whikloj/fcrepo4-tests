@@ -21,6 +21,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def doSparqlContainerTest(self):
+        """ Test Patch requests to a container """
         self.log("Create container")
         headers = {
             'Content-type': 'text/turtle'
@@ -44,6 +45,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def doSparqlBinaryTest(self):
+        """ Test Patch requests to a binary """
         self.log("Create a binary")
         headers = {
             'Content-type': 'image/jpeg'
@@ -69,6 +71,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def doUnicodeSparql(self):
+        """ Test unicode patch requests to a container """
         self.log("Create a container")
         r = self.do_post(self.getBaseUri())
         self.checkResponse(201, r)
@@ -88,6 +91,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def doAddType(self):
+        """ Test we can add a rdf:type to a resource """
         self.log("Create a container")
         r = self.do_post(self.getBaseUri())
         self.checkResponse(201, r)
@@ -107,6 +111,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def doAddRestrictedType(self):
+        """ Test we can't add a rdf:type with a restricted prefix """
         self.log("Create a container")
         r = self.do_post(self.getBaseUri())
         self.checkResponse(201, r)
@@ -125,6 +130,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def doInboundReferenceContainer(self):
+        """ Test that we can see inbound references in the RDF of a container """
         reference = "http://awoods.com/pointer"
         self.log("Create a container")
         r = self.do_post(self.getBaseUri())
@@ -158,6 +164,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def doInboundReferenceBinary(self):
+        """ Test that we can see inbound references in the RDF of a binary description """
         reference = "http://awoods.com/pointer"
         self.log("Create a binary")
         headers = {
@@ -199,6 +206,7 @@ class FedoraSparqlTests(FedoraTests):
 
     @Test
     def testInboundReferenceToSelf(self):
+        """ Test we can generate a self-referencing inbound reference """
         reference = "http://awoods.com/pointsTo"
         r = self.do_post(self.getBaseUri())
         self.checkResponse(TC.CREATED, r)
@@ -221,3 +229,9 @@ class FedoraSparqlTests(FedoraTests):
         json_body = json.loads(body)
         result = pyjq.all('.[] | select(."@id" == "{}") | ."{}" '.format(location, reference), json_body)
         self.assertEqual(1, len(result))
+        self_reference = pyjq.first(
+            '.[] | select(."@id" == "{}") | ."{}" | .[0]."@id"'.format(location, reference),
+            json_body
+        )
+        self.assertEqual(location, self_reference)
+

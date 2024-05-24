@@ -25,6 +25,9 @@ class FedoraTests(unittest.TestCase):
     # Holds ultimate success or failure for tests.
     results = {}
 
+    """ Holds the container resource which test objects are placed in """
+    CONTAINER = ""
+
     def __init__(self, config):
         super().__init__()
         if 'debug_level' not in config:
@@ -191,6 +194,7 @@ class FedoraTests(unittest.TestCase):
         """ Do a regex match against a string """
         if re.search(pattern, text):
             return
+
         standard_msg = '%s pattern not matched in %s' % (unittest.util.safe_repr(pattern),
                                                          unittest.util.safe_repr(text))
         self.fail(self._formatMessage(msg, standard_msg))

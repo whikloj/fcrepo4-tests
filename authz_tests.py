@@ -47,6 +47,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def doAuthTests(self):
+        """ Basic permissions test """
         self.verifyAuthEnabled()
 
         self.log("Create \"cover\" container")
@@ -142,6 +143,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def doDirectIndirectAuthTests(self):
+        """ Test that direct and indirect containers require permissions to the ldp:membershipResource too """
         self.verifyAuthEnabled()
 
         self.log("Create a target container")
@@ -250,6 +252,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def multipleAuthzCreatePermissiveSet(self):
+        """ Ensure that multiple ACLs result in the most permissive union of all the ACLs """
         self.verifyAuthEnabled()
 
         self.log("Create a target container")
@@ -284,14 +287,14 @@ class FedoraAuthzTests(FedoraTests):
         headers = {
             'Content-type': TC.SPARQL_UPDATE_MIMETYPE
         }
-        body = "prefix dc: <{0}> INSERT {{ <> dc:title \"A new title\" }} WHERE {{}}".format(TC.PURL_NS)
+        body = "prefix dc: <{0}> INSERT {{ <> dc:title \"A new title\" }} WHERE {{}}".format(TC.DC_NS)
         r = self.do_patch(target_location, headers=headers, body=body)
         self.checkResponse(204, r)
 
     @Test
     def testAllThingsPointTogether(self):
         self.verifyAuthEnabled()
-
+        """ Ensure we show the same ACL location for binaries and their metadata """
         self.log("Create a target binary")
         headers = {
             'Content-type': 'text/plain',
@@ -326,7 +329,6 @@ class FedoraAuthzTests(FedoraTests):
         self.log("Create a version of binary")
         r = self.do_post(parent=binary_versions)
         self.checkResponse(201, r)
-        memento_location = self.get_location(r)
 
         self.log("Check binary description timemap's acl link header is correct.")
         binary_metadata_versions = binary_description + "/fcr:versions"
@@ -337,6 +339,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def doBinaryAndMetadataShareACL(self):
+        """ Test that a binary and it's metadata share the same ACL permissions """
         self.verifyAuthEnabled()
 
         self.log("Create a target binary")
@@ -379,7 +382,7 @@ class FedoraAuthzTests(FedoraTests):
         self.checkResponse(403, r)
 
         self.log("Try to patch metadata")
-        patch_body = "prefix dc: <{0}> INSERT DATA {{ <> dc:title \"Updated title\"}}".format(TC.PURL_NS)
+        patch_body = "prefix dc: <{0}> INSERT DATA {{ <> dc:title \"Updated title\"}}".format(TC.DC_NS)
         headers = {
             'Content-type': TC.SPARQL_UPDATE_MIMETYPE
         }
@@ -388,7 +391,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def testContainerWithAccessToClass(self):
-
+        """ Test permissions using AccessToClass """
         self.verifyAuthEnabled()
 
         self.log("Create a container")
@@ -461,6 +464,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def testPermissionsDoNotExtendInTx(self):
+        """ Ensure permissions work in transactions and do not extend """
         self.verifyAuthEnabled()
         self.log("Create a container")
         r = self.do_post()
@@ -521,6 +525,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def testGroupAuth(self):
+        """ Test authentication using a group """
         self.log("THIS TEST REQUIRES FEDORA TO HAVE THE TESTSUITE WEBID PREFIX")
         agentGroup = "@prefix    acl:  <http://www.w3.org/ns/auth/acl#>. " \
                      "@prefix  vcard:  <http://www.w3.org/2006/vcard/ns#>. " \
@@ -553,6 +558,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def testControlOnlyPut(self):
+        """ Test that a user with Control permission can only PUT to the ACL and not read it. """
         r = self.do_post()
         self.checkResponse(201, r)
         resource_uri = self.get_location(r)
@@ -590,6 +596,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def testCanAccessToAndAccessToClass(self):
+        """ Test you can't use both acl:accessTo and acl:accessToClass on the same ACL """
         r = self.do_post()
         self.checkResponse(201, r)
         resource_uri = self.get_location(r)
@@ -613,6 +620,7 @@ class FedoraAuthzTests(FedoraTests):
 
     @Test
     def testPutInvalidAcl(self):
+        """ Test you can't define the ACL location """
         self.log("Create a mock container to use as the ACL")
         r = self.do_post()
         self.checkResponse(201, r)

@@ -26,6 +26,7 @@ class FedoraCamelTests(FedoraTests):
 
     @Test
     def CamelCreateObject(self):
+        """ Test create an object in Fedora and track it into Solr/Triplestore """
         self.log("Create an object")
         internal_id = str(uuid.uuid4())
         expected_url = self.getBaseUri() + "/" + internal_id

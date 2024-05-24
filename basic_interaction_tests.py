@@ -1,5 +1,4 @@
 #!/bin/env python
-import datetime
 import shutil
 import tempfile
 import time
@@ -47,18 +46,21 @@ class FedoraBasicIxnTests(FedoraTests):
         return self.getHeader(uri, "X-State-Token").strip()
 
     def duplicateImage(self):
+        """ Copy the test image to a location """
         new_file = os.path.join(tempfile.gettempdir(), 'temp_image.jpeg')
         shutil.copyfile(self.getImagePath(), new_file)
         return new_file
 
     @Test
-    def aTestMissingResource(self):
+    def testMissingResource(self):
+        """ Test we get a 404 for a non-existant resource """
         fake_id = str(uuid.uuid4())
         r = self.do_get(self.getFedoraBase() + "/" + fake_id)
         self.assertEqual(404, r.status_code, "Did not get expected response")
 
     @Test
     def testDeleteAResource(self):
+        """ Test that we can reuse an atomic resource URL once it is purged """
         self.log("Create container")
         r = self.do_post(self.getBaseUri())
         container_location = self.get_location(r)
@@ -100,18 +102,22 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testBasicContainer(self):
+        """ Test creating a basic container """
         self.createTestResource(TC.LDP_BASIC)
 
     @Test
     def testDirectContainer(self):
+        """ Test creating a direct container """
         self.createTestResource(TC.LDP_DIRECT)
 
     @Test
     def testIndirectContainer(self):
+        """ Test creating an indirect container """
         self.createTestResource(TC.LDP_INDIRECT)
 
     @Test
     def testNonRdfSource(self):
+        """ Test creating a binary """
         testfiles = {'files': ('testdata.csv', 'this,is,some,data\n')}
         self.createTestResource(TC.LDP_NON_RDF_SOURCE, files=testfiles)
 
@@ -137,6 +143,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def doNestedTests(self):
+        """ Test creating child objects and removing them """
         self.log("Create a container")
         r = self.createBasicContainer(self.getBaseUri())
         self.checkResponse(TC.CREATED, r)
@@ -206,6 +213,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testPurgeContainer(self):
+        """ Test create, delete and purge a container """
         r = self.do_post()
         self.checkResponse(TC.CREATED, r)
         uri = self.get_location(r)
@@ -233,6 +241,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testPurgeBinary(self):
+        """ Test create, delete and purge a binary """
         headers = {
             'Link': "<{}>; rel=\"type\"".format(TC.LDP_NON_RDF_SOURCE)
         }
@@ -311,6 +320,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testChangeIxnModel(self):
+        """ Test responses when trying to change interaction models """
         self.log("Create a basic container")
         basic = self.createTestResource(TC.LDP_BASIC)
         self.changeIxnModels(basic, TC.LDP_BASIC)
@@ -328,7 +338,9 @@ class FedoraBasicIxnTests(FedoraTests):
         non_rdf = self.createTestResource(TC.LDP_NON_RDF_SOURCE, files=testfiles)
         self.changeIxnModels(non_rdf, TC.LDP_NON_RDF_SOURCE)
 
+    @Test
     def testBinaryTriples(self):
+        """ Test you can create a binary with some expected headers """
         self.log("Create binary with expected properties")
         headers = {
             'Content-type': 'text/plain',
@@ -339,6 +351,8 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testChecksum(self):
+        """ Test that interaction of state tokens and eTags
+        TODO: This test flaps a bit """
         self.log("Create parent resource")
         r = self.do_post(self.getBaseUri())
         self.checkResponse(TC.CREATED, r)
@@ -452,6 +466,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testDeleteAndPutOverTombstoneRdf(self):
+        """ Test you need the header for PUT over a RDFSource tombstone """
         self.log("Create resource")
         r = self.do_post()
         self.checkResponse(TC.CREATED, r)
@@ -475,6 +490,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testDeleteAndPutOverTombstoneNonRdf(self):
+        """ Test you need the header for PUT over a NonRDFSource tombstone """
         self.log("Create NonRdf resource")
         r = self.do_post(headers={
             'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
@@ -506,6 +522,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testDeleteAndPutOverTombstoneWrongTypeRdf(self):
+        """ Test you can't PUT a NonRDFSource over a tombstone for a RDFSource """
         self.log("Create resource RDF")
         r = self.do_post()
         self.checkResponse(TC.CREATED, r)
@@ -534,6 +551,7 @@ class FedoraBasicIxnTests(FedoraTests):
 
     @Test
     def testDeleteAndPutOverTombstoneWrongTypeNonRdf(self):
+        """ Test you can't PUT a RDFSource over a tombstone for a NonRDFSource """
         self.log("Create resource NonRDF")
         r = self.do_post(headers={
             'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),

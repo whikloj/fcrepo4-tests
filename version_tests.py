@@ -184,6 +184,7 @@ class FedoraVersionTests(FedoraTests):
 
     @Test
     def doBinaryVersioningTest(self):
+        """ Test versioning with binaries and their metadata containers endpoint are synced """
         headers = {
             'Link': self.make_type(TestConstants.LDP_NON_RDF_SOURCE),
             'Content-Type': 'text/csv'
@@ -218,7 +219,7 @@ class FedoraVersionTests(FedoraTests):
         r = self.do_post(version_endpoint)
         self.checkResponse(TestConstants.CREATED, r)
 
-        self.log("Try to create another version within a second")
+        self.log("Try to create another version within a second but not at the same time")
         r = self.do_post(version_endpoint)
         self.checkResponse(TestConstants.CREATED, r)
 
@@ -287,6 +288,7 @@ class FedoraVersionTests(FedoraTests):
 
     @Test
     def checkBinaryVersioning(self):
+        """ Test that changes to a binary are displayed on the binary description version endpoint too """
         headers = {
             'Link': self.make_type(TestConstants.LDP_NON_RDF_SOURCE),
             'Content-Type': 'text/csv'
@@ -343,7 +345,8 @@ class FedoraVersionTests(FedoraTests):
         self.checkMementoCount(3, metadata_versions)
 
     @Test
-    def createBinaryVersionsAtSameTime(self):
+    def createBinaryVersionsWithTimeOrBody(self):
+        """ Test we can no longer provide a version datetime or a version body """
         headers = {
             'Link': self.make_type(TestConstants.LDP_NON_RDF_SOURCE),
             'Content-Type': 'text/csv'
@@ -357,8 +360,8 @@ class FedoraVersionTests(FedoraTests):
         description_location = self.find_binary_description(r)
 
         r = self.do_get(description_location)
-        new_body = "@prefix dc: <{0}> .\n".format(TestConstants.PURL_NS) + \
-            r.text[0:-2] + ";\n dc:title \"New title\" .\n".format(TestConstants.PURL_NS)
+        new_body = "@prefix dc: <{0}> .\n".format(TestConstants.DC_NS) + \
+            r.text[0:-2] + ";\n dc:title \"New title\" .\n".format(TestConstants.DC_NS)
 
         version_endpoint = location + "/" + TestConstants.FCR_VERSIONS
         description_version_endpoint = description_location + "/" + TestConstants.FCR_VERSIONS
@@ -401,6 +404,7 @@ class FedoraVersionTests(FedoraTests):
 
     @Test
     def testMementoAreAccessibleAfterDelete(self):
+        """ Test mementos are still accessible when a resource is deleted but not purged. """
         r = self.do_post()
         self.checkResponse(TestConstants.CREATED, r)
         uri = self.get_location(r)
@@ -425,6 +429,7 @@ class FedoraVersionTests(FedoraTests):
 
     @Test
     def testBinaryDescription(self):
+        """ Test checking past versions of binary descriptions """
         headers = {
             'Content-type': 'text/plain'
         }

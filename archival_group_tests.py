@@ -11,6 +11,7 @@ class FedoraArchivalGroupTests(FedoraTests):
 
     @Test
     def testCreateArchivalGroup(self):
+        """ Test create an archival group """
         self.log("Create Archival Group container")
         r = self.do_post(self.getBaseUri(), headers={
             "Link": self.make_type(TC.ARCHIVAL_GROUP)
@@ -23,6 +24,7 @@ class FedoraArchivalGroupTests(FedoraTests):
 
     @Test
     def testDeleteArchivalGroupMember(self):
+        """ Test creating a member of an archival group, deleting it and trying to purge it. """
         self.log("Create Archival Group container")
         r = self.do_post(self.getBaseUri(), headers={
             "Link": self.make_type(TC.ARCHIVAL_GROUP)
@@ -48,6 +50,7 @@ class FedoraArchivalGroupTests(FedoraTests):
 
     @Test
     def putOverArchivalGroupMember(self):
+        """ Test creating an archival group member, delete the member and then PUT overtop """
         self.log("Create Archival Group container")
         r = self.do_post(self.getBaseUri(), headers={
             "Link": self.make_type(TC.ARCHIVAL_GROUP)
@@ -79,6 +82,7 @@ class FedoraArchivalGroupTests(FedoraTests):
 
     @Test
     def putOverArchivalGroupMemberWithDifferentType(self):
+        """ Try to PUT a resource over an archival group member with a different interaction model """
         self.log("Create Archival Group container")
         r = self.do_post(self.getBaseUri(), headers={
             "Link": self.make_type(TC.ARCHIVAL_GROUP)
@@ -115,6 +119,7 @@ class FedoraArchivalGroupTests(FedoraTests):
 
     @Test
     def testCreateAndDeleteArchivalGroup(self):
+        """ Test creating and deleting an archival group """
         self.log("Create Archival Group container")
         r = self.do_post(self.getBaseUri(), headers={
             "Link": self.make_type(TC.ARCHIVAL_GROUP)
@@ -147,6 +152,7 @@ class FedoraArchivalGroupTests(FedoraTests):
 
     @Test
     def testCreateAndPutOverArchivalGroup(self):
+        """ Test create and delete an archival group and put overtop the tombstone """
         self.log("Create Archival Group container")
         r = self.do_post(self.getBaseUri(), headers={
             "Link": self.make_type(TC.ARCHIVAL_GROUP)
@@ -179,6 +185,8 @@ class FedoraArchivalGroupTests(FedoraTests):
 
     @Test
     def testCreateAndPutOverArchivalGroupWithDifferentType(self):
+        """ Test create/delete an archival group and try to PUT overtop the tombstone with a different interaction
+        model """
         self.log("Create Archival Group container")
         r = self.do_post(self.getBaseUri(), headers={
             "Link": self.make_type(TC.ARCHIVAL_GROUP)

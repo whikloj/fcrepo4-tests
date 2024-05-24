@@ -28,6 +28,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def doCommitTest(self):
+        """ Test creating and committing a transaction """
         tx_provider = self.get_transaction_provider()
         if tx_provider is None:
             self.log("Could not location transaction provider")
@@ -102,6 +103,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def doRollbackTest(self):
+        """ Test creating and rolling back a transaction """
         tx_provider = self.get_transaction_provider()
         if tx_provider is None:
             self.log("Could not location transaction provider")
@@ -144,7 +146,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def createAndDeleteInTwoTransaction(self):
-
+        """ Test creating a resource in one long running transaction and deleting it in a second """
         self.log("Create a transaction")
         tx_id = self.createTransaction()
 
@@ -196,7 +198,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def createAndDeleteInOneTransaction(self):
-
+        """ Test creating and deleting a resource in a single transaction """
         tx_id = self.createTransaction()
 
         self.log("Create a container")
@@ -225,6 +227,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def testTransactionExclusion(self):
+        """ Test completely removing a resource and then re-adding it in a single transaction """
         self.log("Create a container.")
         r = self.do_post()
         self.checkResponse(TC.CREATED, r)
@@ -269,6 +272,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def aPlainUserTransactionRollbackInternal(self):
+        """ Test a normal user performing actions in a transaction, then rolling it back using info:fedora URIs """
         child, tx_id = self.setup_user_writeable_tx()
 
         self.log("Rollback transaction")
@@ -286,6 +290,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def aPlainUserTransactionRollbackExternal(self):
+        """ Test a normal user performing actions in a transaction, then rolling it back using http Fedora URIs """
         child, tx_id = self.setup_user_writeable_tx(fedora_base_uri=self.getFedoraBase())
 
         self.log("Rollback transaction")
@@ -303,6 +308,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def aPlainUserTransactionCommitInternal(self):
+        """ Test a normal user performing actions in a transaction, then committing it using info:fedora URIs """
         child, tx_id = self.setup_user_writeable_tx()
 
         self.log(f"Test getting the child ({child}) outside the transaction")
@@ -319,6 +325,7 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def aPlainUserTransactionCommitExternal(self):
+        """ Test a normal user performing actions in a transaction, then committing it using http Fedora  URIs """
         child, tx_id = self.setup_user_writeable_tx(fedora_base_uri=self.getFedoraBase())
 
         self.log(f"Test getting the child ({child}) outside the transaction")
@@ -335,6 +342,8 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def aSinglePlainUserTransactionCommitInternal(self):
+        """ Test a normal user performing actions in a transaction, but a second user doesn't have permission
+         to the transaction endpoint using info:fedora URIs """
         child, tx_id = self.single_user_tx_setup()
 
         self.log("Commit transaction")
@@ -352,23 +361,8 @@ class FedoraTransactionTests(FedoraTests):
 
     @Test
     def aSinglePlainUserTransactionCommitExternal(self):
-        child, tx_id = self.single_user_tx_setup(fedora_base_uri=self.getFedoraBase())
-
-        self.log("Commit transaction")
-        r = self.do_put(tx_id, admin=False)
-        self.checkResponse(TC.NO_CONTENT, r, tx_id)
-
-        self.log(f"Test getting the child ({child}) outside the transaction")
-        r = self.do_get(child, admin=False)
-        self.checkResponse(TC.OK, r, tx_id)
-
-        self.log("Try to start a transaction as the second normal user")
-        tx_endpoint = self.get_transaction_provider()
-        r = self.do_post(tx_endpoint, admin=self.create_user2_auth())
-        self.checkResponse(TC.FORBIDDEN, r)
-
-    @Test
-    def aSinglePlainUserTransactionCommitExternal(self):
+        """ Test a normal user performing actions in a transaction, but a second user doesn't have permission
+                 to the transaction endpoint using http: Fedora URIs """
         child, tx_id = self.single_user_tx_setup(fedora_base_uri=self.getFedoraBase())
 
         self.log("Commit transaction")

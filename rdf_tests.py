@@ -3,7 +3,7 @@ import time
 
 import rdflib.parser
 
-import TestConstants
+import TestConstants as TC
 from abstract_fedora_tests import FedoraTests, register_tests, Test
 
 
@@ -23,6 +23,7 @@ class FedoraRdfTests(FedoraTests):
 
     @Test
     def testRdfSerialization(self):
+        """ Test GETting RDF in supported formats """
         self.log("Put new resource.")
         r = self.createBasicContainer(self.getBaseUri())
         self.assertEqual(201, r.status_code, "Did not create new object")
@@ -32,10 +33,10 @@ class FedoraRdfTests(FedoraTests):
         self.assertTitleExists("An Object", location)
 
         self.log("PUT to update title.")
-        n_triples = "<{0}> <http://purl.org/dc/elements/1.1/title> \"Updated Title\" .".format(location)
+        n_triples = "<{0}> <{1}> \"Updated Title\" .".format(location, TC.DC_TITLE)
         headers = {
             "Content-type": "application/n-triples",
-            "Prefer": TestConstants.PUT_PREFER_LENIENT
+            "Prefer": TC.PUT_PREFER_LENIENT
         }
         r = self.do_put(location, headers=headers, body=n_triples)
         self.assertEqual(204, r.status_code, "Did not update the resource")
@@ -64,22 +65,23 @@ class FedoraRdfTests(FedoraTests):
 
     @Test
     def TestRoundtrippingBinary(self):
+        """ Test roundtrip the metadata from a binary """
         self.log("Post new binary")
         r = self.do_post(headers={'Content-type': 'text/plain'}, body="Content")
-        self.assertEqual(TestConstants.CREATED, r.status_code, "Did not create binary")
+        self.assertEqual(TC.CREATED, r.status_code, "Did not create binary")
         location = self.get_location(r)
         self.log("location is {}".format(location))
 
-        body = self.do_get(location + "/" + TestConstants.FCR_METADATA, headers={'Accept': 'application/n-triples'})
+        body = self.do_get(location + "/" + TC.FCR_METADATA, headers={'Accept': 'application/n-triples'})
         graph = rdflib.Graph()
         graph.parse(data=body.content.decode(encoding='utf-8'), format='nt')
         for (s, p, o) in graph:
-            if p in [rdflib.URIRef(TestConstants.FEDORA_NS + "hasFixityService"),
-                     rdflib.URIRef(TestConstants.FEDORA_NS + "created"),
-                     rdflib.URIRef(TestConstants.FEDORA_NS + "createdBy"),
-                     rdflib.URIRef(TestConstants.FEDORA_NS + "lastModified"),
-                     rdflib.URIRef(TestConstants.FEDORA_NS + "lastModifiedBy"),
-                     rdflib.URIRef(TestConstants.RDF_TYPE),
+            if p in [rdflib.URIRef(TC.FEDORA_NS + "hasFixityService"),
+                     rdflib.URIRef(TC.FEDORA_NS + "created"),
+                     rdflib.URIRef(TC.FEDORA_NS + "createdBy"),
+                     rdflib.URIRef(TC.FEDORA_NS + "lastModified"),
+                     rdflib.URIRef(TC.FEDORA_NS + "lastModifiedBy"),
+                     rdflib.URIRef(TC.RDF_TYPE),
                      rdflib.URIRef("http://www.loc.gov/premis/rdf/v1#hasMessageDigest")]:
                 graph.remove((s, p, o))
 
@@ -88,25 +90,25 @@ class FedoraRdfTests(FedoraTests):
 
         self.log("Delete binary")
         r = self.do_delete(location)
-        self.assertEqual(TestConstants.NO_CONTENT, r.status_code, "Unable to delete binary")
+        self.assertEqual(TC.NO_CONTENT, r.status_code, "Unable to delete binary")
         self.log("Delete binary tombstone")
-        r = self.do_delete(location + "/" + TestConstants.FCR_TOMBSTONE)
-        self.assertEqual(TestConstants.NO_CONTENT, r.status_code, "Unable to delete binary tombstone")
+        r = self.do_delete(location + "/" + TC.FCR_TOMBSTONE)
+        self.assertEqual(TC.NO_CONTENT, r.status_code, "Unable to delete binary tombstone")
 
         time.sleep(1)
         self.log("Put binary back")
         r = self.do_put(location, headers={'Content-type': 'text/plain'}, body="Content")
-        self.assertEqual(TestConstants.CREATED, r.status_code, "Did not create binary")
+        self.assertEqual(TC.CREATED, r.status_code, "Did not create binary")
         self.log("Put the description back")
-        r = self.do_put(location + "/" + TestConstants.FCR_METADATA, headers={
+        r = self.do_put(location + "/" + TC.FCR_METADATA, headers={
             'Content-type': 'application/n-triples',
             'Prefer': 'handling=lenient'
         }, body=new_body)
-        self.assertEqual(TestConstants.NO_CONTENT, r.status_code, "Did not update binary description")
+        self.assertEqual(TC.NO_CONTENT, r.status_code, "Did not update binary description")
 
         self.log("Get the body again")
-        r = self.do_get(location + "/" + TestConstants.FCR_METADATA, headers={'Accept': 'application/n-triples'})
-        self.assertEqual(TestConstants.OK, r.status_code, "Could not get the binary description")
+        r = self.do_get(location + "/" + TC.FCR_METADATA, headers={'Accept': 'application/n-triples'})
+        self.assertEqual(TC.OK, r.status_code, "Could not get the binary description")
         get_body = r.content.decode(encoding='utf-8')
         self.log("GET body {}".format(get_body))
         graph2 = rdflib.Graph()

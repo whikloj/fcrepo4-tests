@@ -71,20 +71,28 @@ MEM_MEMENTO = MEMENTO_NS + "Memento"
 
 ACL_NS = "http://www.w3.org/ns/auth/acl#"
 
-PURL_NS = "http://purl.org/dc/elements/1.1/"
+DC_NS = "http://purl.org/dc/elements/1.1/"
+
+RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+
+PCDM_NS = "http://pcdm.org/models#"
+
+# Some standard properties
+DC_TITLE = "{}title".format(DC_NS)
+RDF_TYPE = "{}type".format(RDF_NS)
 
 # Test constructs
-OBJECT_TTL = "@prefix dc: <http://purl.org/dc/elements/1.1/> ." \
-             "@prefix pcdm: <http://pcdm.org/models#> ." \
+OBJECT_TTL = "@prefix dc: <{0}> ." \
+             "@prefix pcdm: <{1}> ." \
              "<> a pcdm:Object ;" \
-             "dc:title \"An Object\" ."
+             "dc:title \"An Object\" .".format(DC_NS, PCDM_NS)
 
 PCDM_CONTAINER_TITLE = "PCDM Container"
 
-PCDM_CONTAINER_TTL = "@prefix dc: <http://purl.org/dc/elements/1.1/> ." \
-                     "@prefix pcdm: <http://pcdm.org/models#> ." \
+PCDM_CONTAINER_TTL = "@prefix dc: <{1}> ." \
+                     "@prefix pcdm: <{2}> ." \
                      "<> a pcdm:Object ;" \
-                     "dc:title \"{0}\" .".format(PCDM_CONTAINER_TITLE)
+                     "dc:title \"{0}\" .".format(PCDM_CONTAINER_TITLE, DC_NS, PCDM_NS)
 # Standard Response codes
 CREATED = 201
 NO_CONTENT = 204
@@ -98,8 +106,4 @@ BAD_REQUEST = 400
 METHOD_NOT_ALLOWED = 405
 SERVER_ERROR = 500
 
-# Some standard properties
-DC_NAMESPACE = "http://purl.org/dc/elements/1.1/"
-RDF_NAMESPACE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-DC_TITLE = "{}title".format(DC_NAMESPACE)
-RDF_TYPE = "{}type".format(RDF_NAMESPACE)
+

@@ -1,17 +1,12 @@
-# Fedora 4 Tests
+# Fedora Tests
 
-These python tests are meant to be run against a standalone Fedora 4 instance. 
+These python tests are meant to be run against a standalone Fedora instance. 
 
 This will create, update and delete resources in the repository. So you may **not** want to use it on a production instance.
 
 Also, this is doing a cursory test. It does some verification of RDF, and patches are always welcome.
 
-Note: in order to test authorization, please first verify that your Fedora repository in configured to use authorization.
-Check the `repository.json` in use, and verify that the `security` block contains a `providers` list such as:
-
-    "providers" : [
-        { "classname" : "org.fcrepo.auth.common.ServletContainerAuthenticationProvider" }
-    ]
+Note: in order to test authorization, please see [this note](#authz-tests)
 
 ## Installation
 
@@ -83,11 +78,11 @@ If a configuration cannot be found or the `-n|--site_name` argument is not prese
 You can also choose to run only a subset of all tests using the `-t|--tests` argument. It accepts a comma separated list
 of the following values which indicate which tests to run.
 * `archivalgroup` - Archival Group tests
-* `authz` - Authorization tests
+* `authz` - Authorization tests (see [note](#authz-tests))
 * `basic` - Basic interaction tests
 * `camel` - Camel toolbox tests (see [note](#camel-tests))
 * `fixity` - Binary fixity tests
-* `indirect` - Indirect container tests
+* `indirect` - Direct/Indirect container tests
 * `rdf` - RDF serialization tests
 * `sparql` - Sparql operation tests
 * `transaction` - Transcation tests
@@ -108,7 +103,18 @@ They also require the configuration to have a `solrurl` parameter pointing to a 
 
 Both of these systems must be fed by the fcrepo-camel-toolbox for this testing.
 
+##### AuthZ tests
+`authz` tests will require authz to be enabled on your Fedora, as well you will need to set the 
+following properties for your Fedora or the test `testGroupAuth` will fail.
+```commandline
+fcrepo.auth.webac.userAgent.baseUri=http://example.com/
+fcrepo.auth.webac.groupAgent.baseUri=http://example.com/
+```
+
+
 ## Tests implemented
+
+**Note**: this list is out of date, you are better to view the tests in the various test classes. 
 
 ### archivalgroup
 1. Create an archivalgroup container
