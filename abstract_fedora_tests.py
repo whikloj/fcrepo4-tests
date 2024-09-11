@@ -254,6 +254,12 @@ class FedoraTests(unittest.TestCase):
             quit()
 
     def getHeader(self, uri: str, header_name: str, headers: dict = None):
+        """ Perform a HEAD request and return the requested header if exists.
+        :param uri (str) - The URI to request
+        :param header_name (str) - The header to look for
+        :param headers (dict) - headers to provide for the HEAD request or None for none.
+        :return the header(s) or None
+        """
         if headers is None:
             headers = {}
         r = self.do_head(uri, headers=headers)

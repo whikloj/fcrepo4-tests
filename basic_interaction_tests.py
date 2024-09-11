@@ -1,5 +1,7 @@
 #!/bin/env python
+import random
 import shutil
+import string
 import tempfile
 import time
 
@@ -578,3 +580,51 @@ class FedoraBasicIxnTests(FedoraTests):
             TC.OVERWRITE_TOMBSTONE_HEADER: "true"
         })
         self.checkResponse(TC.CONFLICT, r)
+
+    @Test
+    def testRangeRequests(self):
+        """ Test that we support RFC 7233 range requests """
+        self.log("Create a NonRDFResource")
+        r = self.do_post(headers={
+            'Link': self.make_type(TC.LDP_NON_RDF_SOURCE),
+            'Content-type': 'text/plain'
+        }, body=''.join(random.choices(string.ascii_lowercase, k=100)))
+        self.checkResponse(TC.CREATED, r)
+        location = self.get_location(r)
+        length = self.getHeader(location, 'Content-Length')
+        if length is not None:
+            half_length = int(int(length) / 2)
+            one_longer = int(length) + 1
+
+            self.log("Perform request for first half of the range")
+            r = self.do_get(location, headers={
+                'Range': 'bytes=0-{0}'.format(half_length)
+            })
+            self.checkResponse(TC.PARTIAL_CONTENT, r)
+            range = r.headers['Content-Range']
+            if range:
+                self.assertEqual('bytes 0-{0}/{1}'.format(half_length, length), range)
+            else:
+                self.fail("No Content-Range header found")
+
+            self.log("Perform request for range slightly longer than the content")
+            r = self.do_get(location, headers={
+                'Range': 'bytes=0-{0}'.format(one_longer)
+            })
+            self.checkResponse(TC.PARTIAL_CONTENT, r)
+            range = r.headers['Content-Range']
+            if range:
+                self.assertEqual('bytes 0-{0}/{1}'.format(int(length) - 1, length), range)
+            else:
+                self.fail("No Content-Range header found")
+
+            self.log("Perform request for range of the content length")
+            r = self.do_get(location, headers={
+                'Range': 'bytes=0-{0}'.format(length)
+            })
+            self.checkResponse(TC.PARTIAL_CONTENT, r)
+            range = r.headers['Content-Range']
+            if range:
+                self.assertEqual('bytes 0-{0}/{1}'.format(int(length) -1, length), range)
+            else:
+                self.fail("No Content-Range header found")
